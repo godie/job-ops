@@ -893,6 +893,39 @@ export const settingsRegistry = {
     },
   },
 
+  // --- TypeSafe scoring ---
+  typesafeScoringEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => false,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
+  typesafeMinConfidence: {
+    kind: "typed" as const,
+    schema: z.number().min(0).max(1),
+    default: (): number => 0.7,
+    parse: (raw: string | undefined): number | null => {
+      if (raw === undefined || raw === "") return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : null;
+    },
+    serialize: serializeNullableNumber,
+  },
+  typesafeModel: {
+    kind: "typed" as const,
+    schema: z.string().trim().min(1).max(200),
+    default: (): string => "jev-latest",
+    parse: parseNonEmptyStringOrNull,
+    serialize: (value: string | null | undefined): string | null =>
+      value ?? null,
+  },
+  typesafeApiKey: {
+    kind: "secret" as const,
+    envKey: "TYPESAFE_API_KEY",
+    schema: z.string().trim().max(2000),
+  },
+
   // --- Model Variants ---
   modelScorer: {
     kind: "model" as const,

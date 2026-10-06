@@ -319,5 +319,9 @@ export const createAppSettings = (
   penalizeMissingSalary: { value: false, default: false, override: null },
   missingSalaryPenalty: { value: 10, default: 10, override: null },
   autoSkipScoreThreshold: { value: null, default: null, override: null },
+  typesafeScoringEnabled: { value: false, default: false, override: null },
+  typesafeMinConfidence: { value: 0.7, default: 0.7, override: null },
+  typesafeModel: { value: "jev-latest", default: "jev-latest", override: null },
+  typesafeApiKeyHint: null,
   ...overrides,
 });

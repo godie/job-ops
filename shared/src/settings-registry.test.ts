@@ -470,4 +470,23 @@ describe("settingsRegistry helpers", () => {
       ).toBe(JSON.stringify({ tailoring: { model: "gpt-5.4-mini" } }));
     });
   });
+
+  describe("typesafe scoring settings", () => {
+    it("has safe defaults", () => {
+      expect(settingsRegistry.typesafeScoringEnabled.default()).toBe(false);
+      expect(settingsRegistry.typesafeMinConfidence.default()).toBe(0.7);
+      expect(settingsRegistry.typesafeModel.default()).toBe("jev-latest");
+    });
+
+    it("clamps typesafeMinConfidence to 0..1", () => {
+      expect(settingsRegistry.typesafeMinConfidence.parse("2")).toBe(1);
+      expect(settingsRegistry.typesafeMinConfidence.parse("-1")).toBe(0);
+      expect(settingsRegistry.typesafeMinConfidence.parse("0.62")).toBe(0.62);
+    });
+
+    it("declares typesafeApiKey as an env-backed secret", () => {
+      expect(settingsRegistry.typesafeApiKey.kind).toBe("secret");
+      expect(settingsRegistry.typesafeApiKey.envKey).toBe("TYPESAFE_API_KEY");
+    });
+  });
 });

@@ -305,6 +305,12 @@ export interface AppSettings {
   missingSalaryPenalty: Resolved<number>;
   autoSkipScoreThreshold: Resolved<number | null>;
 
+  // TypeSafe scoring:
+  typesafeScoringEnabled: Resolved<boolean>;
+  typesafeMinConfidence: Resolved<number>;
+  typesafeModel: Resolved<string>;
+  typesafeApiKeyHint: string | null;
+
   // Model variants (no own default, fallback to model.value):
   modelScorer: ModelResolved;
   modelTailoring: ModelResolved;

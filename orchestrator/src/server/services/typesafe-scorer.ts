@@ -42,7 +42,7 @@ export type TypesafeFitResult = {
 
 export function mapFitLevelToScore(
   levelPosition: number,
-  levelCount = FIT_LEVELS.length,
+  levelCount: number = FIT_LEVELS.length,
 ): number {
   if (levelCount < 2) return 0;
   const clamped = Math.min(levelCount - 1, Math.max(0, levelPosition));

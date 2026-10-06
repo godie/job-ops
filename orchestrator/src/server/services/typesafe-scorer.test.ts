@@ -1,5 +1,5 @@
 import { createJob } from "@shared/testing/factories";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   extractFitAnswer,
   FIT_LEVELS,
@@ -21,6 +21,10 @@ describe("mapFitLevelToScore", () => {
     expect(mapFitLevelToScore(3.2)).toBe(80);
     expect(mapFitLevelToScore(-1)).toBe(0);
     expect(mapFitLevelToScore(9)).toBe(100);
+  });
+
+  it("returns 0 without dividing by zero", () => {
+    expect(mapFitLevelToScore(0, 1)).toBe(0);
   });
 });
 
@@ -57,9 +61,26 @@ describe("scoreFitWithTypeSafe", () => {
     title: "Backend Engineer",
     employer: "Acme",
   });
+  const fitBody = (score: number, confidence: number) =>
+    JSON.stringify({
+      model: "jev-1.13.0",
+      answers: {
+        fit: {
+          type: "score",
+          score,
+          confidence,
+          legend: { [String(score)]: FIT_LEVELS[score] },
+          probabilities: { [String(score)]: 0.9 },
+        },
+      },
+    });
 
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("throws TypesafeNotConfiguredError without a key", async () => {
@@ -78,19 +99,7 @@ describe("scoreFitWithTypeSafe", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      text: async () =>
-        JSON.stringify({
-          model: "jev-1.13.0",
-          answers: {
-            fit: {
-              type: "score",
-              score: 3,
-              confidence: 0.88,
-              legend: { "3": FIT_LEVELS[3] },
-              probabilities: { "3": 0.9, "4": 0.1 },
-            },
-          },
-        }),
+      text: async () => fitBody(3, 0.88),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -106,7 +115,33 @@ describe("scoreFitWithTypeSafe", () => {
     expect(result.confidence).toBe(0.88);
     expect(result.model).toBe("jev-1.13.0");
     expect(fetchMock).toHaveBeenCalledOnce();
-    vi.unstubAllGlobals();
+  });
+
+  it("retries once on 429 then returns the mapped score", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: async () => "slow",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => fitBody(2, 0.7),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await scoreFitWithTypeSafe({
+      job,
+      profile: {},
+      apiKey: "x",
+      model: "m",
+      scoringInstructions: "",
+    });
+
+    expect(result.score).toBe(50);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("throws TypesafeScoringError on 401", async () => {
@@ -125,7 +160,6 @@ describe("scoreFitWithTypeSafe", () => {
         scoringInstructions: "",
       }),
     ).rejects.toBeInstanceOf(TypesafeScoringError);
-    vi.unstubAllGlobals();
   });
 
   it("retries once on 429 then fails", async () => {
@@ -152,6 +186,41 @@ describe("scoreFitWithTypeSafe", () => {
       }),
     ).rejects.toBeInstanceOf(TypesafeScoringError);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    vi.unstubAllGlobals();
+  });
+
+  it("wraps a rejected fetch in TypesafeScoringError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down")),
+    );
+    await expect(
+      scoreFitWithTypeSafe({
+        job,
+        profile: {},
+        apiKey: "x",
+        model: "m",
+        scoringInstructions: "",
+      }),
+    ).rejects.toBeInstanceOf(TypesafeScoringError);
+  });
+
+  it("throws TypesafeScoringError on a non-JSON 200 body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => "not json",
+      }),
+    );
+    await expect(
+      scoreFitWithTypeSafe({
+        job,
+        profile: {},
+        apiKey: "x",
+        model: "m",
+        scoringInstructions: "",
+      }),
+    ).rejects.toBeInstanceOf(TypesafeScoringError);
   });
 });

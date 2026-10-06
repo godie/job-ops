@@ -44,6 +44,7 @@ export function mapFitLevelToScore(
   levelPosition: number,
   levelCount = FIT_LEVELS.length,
 ): number {
+  if (levelCount < 2) return 0;
   const clamped = Math.min(levelCount - 1, Math.max(0, levelPosition));
   return Math.round((clamped / (levelCount - 1)) * 100);
 }
@@ -210,10 +211,22 @@ export async function scoreFitWithTypeSafe(input: {
   };
 
   const startedAt = Date.now();
-  let result = await postSystemOne(body, input.apiKey);
-  if (result.status === 429 || result.status === 529) {
-    await sleep(500);
+  let result: { status: number; json: unknown };
+  try {
     result = await postSystemOne(body, input.apiKey);
+    if (result.status === 429 || result.status === 529) {
+      await sleep(500);
+      result = await postSystemOne(body, input.apiKey);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "TypeSafe request failed";
+    logger.warn("TypeSafe scoring request errored", {
+      provider: "typesafe",
+      jobId: input.job.id,
+      error: message,
+    });
+    throw new TypesafeScoringError(message);
   }
 
   if (result.status < 200 || result.status >= 300 || !result.json) {

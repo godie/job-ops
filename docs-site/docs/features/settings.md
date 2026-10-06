@@ -256,6 +256,41 @@ Per-search ranking preferences now live in **Run search**. Add them to the natur
 - In hosted mode, job-clearing actions affect only the signed-in user's jobs
 - Clear the full database as a system admin; this affects every workspace
 
+## AI scoring with TypeSafe
+
+### What it is
+
+An optional scoring mode where the suitability score (0–100) comes from TypeSafe's
+`jev` model as a `Score` question, instead of the LLM.
+
+### Why it exists
+
+TypeSafe returns a calibrated confidence for each judgment. The score is a position on
+five described levels; the confidence tells you how concentrated that judgment was.
+
+### How to use it
+
+1. Go to **Settings → Scoring**.
+2. Enable **Use TypeSafe for scoring**.
+3. Paste your TypeSafe API key (from https://console.typesafe.ai/keys).
+4. Optionally set **Minimum TypeSafe Confidence** (default `0.7`).
+
+When enabled, the LLM still writes the job brief and reason, but the score is
+TypeSafe's. If TypeSafe is not configured or fails, the job is left unscored and
+retried on the next run — there is no fallback to the LLM score.
+
+### Common problems
+
+- **Jobs stay unscored:** the API key is missing or invalid, or the TypeSafe API is
+  failing. Check **Settings → Scoring** and the server logs.
+- **Jobs are not auto-skipped:** the auto-skip threshold is set, but TypeSafe
+  confidence was below **Minimum TypeSafe Confidence**, so the job is kept for review.
+
+### Related pages
+
+- [Orchestrator pipeline](/docs/features/orchestrator)
+- [Settings](/docs/features/settings)
+
 ## API examples
 
 ```bash

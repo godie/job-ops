@@ -1211,6 +1211,11 @@ export const SettingsPage: React.FC = () => {
         if (value !== undefined) envPayload.webhookSecret = value;
       }
 
+      if (dirtyFields.typesafeApiKey) {
+        const value = normalizePrivateInput(data.typesafeApiKey);
+        if (value !== undefined) envPayload.typesafeApiKey = value;
+      }
+
       const llmPayload: Partial<UpdateSettingsInput> = canEditLlmSettings
         ? {
             model: dirtyFields.llmProvider
@@ -1341,7 +1346,6 @@ export const SettingsPage: React.FC = () => {
           normalizeString(data.typesafeModel),
           scoring.typesafeModel.default,
         ),
-        typesafeApiKey: normalizePrivateInput(data.typesafeApiKey),
         ghostwriterSystemPromptTemplate: nullIfSame(
           normalizeString(data.ghostwriterSystemPromptTemplate),
           promptTemplates.ghostwriterSystemPromptTemplate.default,

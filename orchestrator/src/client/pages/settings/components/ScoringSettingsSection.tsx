@@ -254,7 +254,12 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
                     step: 0.05,
                     value: field.value ?? typesafeMinConfidence.default,
                     onChange: (event) => {
-                      const value = Number(event.target.value);
+                      const raw = event.target.value;
+                      if (raw === "") {
+                        field.onChange(null);
+                        return;
+                      }
+                      const value = Number(raw);
                       field.onChange(
                         Number.isFinite(value)
                           ? Math.min(1, Math.max(0, value))

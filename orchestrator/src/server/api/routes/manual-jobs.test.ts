@@ -84,6 +84,7 @@ describe.sequential("Manual jobs API routes", () => {
     const { scoreJobSuitability } = await import("@server/services/scorer");
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 88,
+      confidence: null,
       reason: "Strong fit",
       jobBrief: null,
     });
@@ -120,6 +121,7 @@ describe.sequential("Manual jobs API routes", () => {
     const { scoreJobSuitability } = await import("@server/services/scorer");
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 88,
+      confidence: null,
       reason: "Strong fit",
       jobBrief: null,
     });
@@ -300,6 +302,7 @@ describe.sequential("Manual jobs API routes", () => {
     vi.mocked(processJob).mockClear();
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 70,
+      confidence: null,
       reason: "Fit",
       jobBrief: null,
     });

@@ -19,6 +19,11 @@ import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import { renderPromptTemplate } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
 import { getEffectiveSettings } from "./settings";
+import {
+  resolveTypesafeApiKey,
+  scoreFitWithTypeSafe,
+  TypesafeNotConfiguredError,
+} from "./typesafe-scorer";
 
 export class LlmNotConfiguredError extends Error {
   constructor(message?: string) {
@@ -41,6 +46,7 @@ export class ScoringUnavailableError extends Error {
 
 interface SuitabilityResult {
   score: number | null; // 0-100, or null when scoring failed
+  confidence: number | null;
   reason: string; // Explanation
   jobBrief: string | null;
   jobUpdates?: UpdateJobInput;
@@ -356,10 +362,37 @@ export async function scoreJobSuitability(
     });
   }
 
+  let effectiveScore = clampedScore;
+  let confidence: number | null = null;
+
+  if (settings.typesafeScoringEnabled?.value) {
+    const apiKey = await resolveTypesafeApiKey();
+    try {
+      const fit = await scoreFitWithTypeSafe({
+        job: patchResult.patchedJob,
+        profile: sanitizeProfileForPrompt(aiProfile),
+        apiKey,
+        model: settings.typesafeModel.value,
+        scoringInstructions,
+      });
+      effectiveScore = fit.score;
+      confidence = fit.confidence;
+    } catch (error) {
+      if (error instanceof TypesafeNotConfiguredError) {
+        throw new LlmNotConfiguredError(
+          "TypeSafe scoring is enabled but not configured. Add your API key in Settings → Integrations, or turn off TypeSafe scoring.",
+        );
+      }
+      throw new ScoringUnavailableError(
+        `TypeSafe scoring failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   // Apply salary penalty if enabled
   const penaltyResult = applySalaryPenalty(
     patchResult.patchedJob,
-    clampedScore,
+    effectiveScore,
     clampedReason,
     {
       penalizeMissingSalary: settings.penalizeMissingSalary.value,
@@ -369,6 +402,7 @@ export async function scoreJobSuitability(
 
   return {
     score: penaltyResult.score,
+    confidence,
     reason: penaltyResult.reason,
     jobBrief:
       job.jobDescription?.trim() && result.data.jobBrief

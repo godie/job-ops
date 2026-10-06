@@ -64,6 +64,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
     vi.mocked(settingsRepo.getSetting).mockResolvedValue(null);
     vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
       score: 40,
+      confidence: null,
       reason: "Low fit",
       jobBrief: null,
     });
@@ -147,6 +148,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
 
     vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
       score: 40,
+      confidence: null,
       reason: "Low fit",
       jobBrief:
         '{"role_summary":"Build tools","they_want":[],"specifics":[],"company_offers":[],"practical_details":[],"missing_or_unclear":[],"repeated_signals":[]}',
@@ -169,6 +171,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
 
     vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
       score: 75,
+      confidence: null,
       reason: "Good fit",
       jobBrief: null,
       jobUpdates: {
@@ -199,6 +202,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
     const { progressHelpers } = await import("../progress");
     vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
       score,
+      confidence: null,
       reason: "Test score",
       jobBrief: null,
     });
@@ -222,6 +226,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
     vi.mocked(settingsRepo.getSetting).mockResolvedValue("50");
     vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
       score: 50,
+      confidence: null,
       reason: "At threshold",
       jobBrief: null,
     });
@@ -328,11 +333,13 @@ describe("scoreJobsStep auto-skip behavior", () => {
     vi.mocked(scorer.scoreJobSuitability)
       .mockResolvedValueOnce({
         score: 61,
+        confidence: null,
         reason: "First score",
         jobBrief: null,
       })
       .mockResolvedValueOnce({
         score: 72,
+        confidence: null,
         reason: "Second score",
         jobBrief: null,
       });
@@ -384,6 +391,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
       )
       .mockResolvedValueOnce({
         score: 72,
+        confidence: null,
         reason: "Second score",
         jobBrief: null,
       });

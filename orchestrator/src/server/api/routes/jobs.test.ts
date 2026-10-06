@@ -1428,6 +1428,7 @@ describe.sequential("Jobs API routes", () => {
     vi.mocked(getProfile).mockResolvedValue({});
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 81,
+      confidence: null,
       reason: "Updated fit from action rescore",
       jobBrief: null,
     });
@@ -1637,6 +1638,7 @@ describe.sequential("Jobs API routes", () => {
     vi.mocked(getProfile).mockResolvedValue({});
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 77,
+      confidence: null,
       reason: "Updated fit",
       jobBrief:
         '{"role_summary":"Build tools","they_want":[],"specifics":[],"company_offers":[],"practical_details":[],"missing_or_unclear":[],"repeated_signals":[]}',

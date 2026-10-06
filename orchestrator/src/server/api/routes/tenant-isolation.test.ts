@@ -77,6 +77,7 @@ describe.sequential("Tenant isolation", () => {
     const { scoreJobSuitability } = await import("@server/services/scorer");
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 80,
+      confidence: null,
       reason: "Good fit",
       jobBrief: null,
     });

@@ -34,6 +34,10 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
     missingSalaryPenalty,
     autoSkipScoreThreshold,
     blockedCompanyKeywords,
+    typesafeScoringEnabled,
+    typesafeMinConfidence,
+    typesafeModel,
+    typesafeApiKeyHint,
   } = values;
   const { control, watch, setValue } = useFormContext<UpdateSettingsInput>();
   const [blockedCompanyKeywordDraft, setBlockedCompanyKeywordDraft] =
@@ -47,6 +51,8 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
   const currentAutoSkipThreshold = watch("autoSkipScoreThreshold");
   const blockedCompanyKeywordValues =
     watch("blockedCompanyKeywords") ?? blockedCompanyKeywords.default;
+  const currentTypesafeEnabled =
+    watch("typesafeScoringEnabled") ?? typesafeScoringEnabled.default;
 
   return (
     <SettingsSectionFrame
@@ -196,6 +202,109 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
               : "None"}
           </div>
         </div>
+
+        <Separator />
+
+        <div className="flex items-start space-x-3">
+          <Controller
+            name="typesafeScoringEnabled"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                id="typesafeScoringEnabled"
+                checked={field.value ?? typesafeScoringEnabled.default}
+                onCheckedChange={(checked) =>
+                  field.onChange(
+                    checked === "indeterminate" ? null : checked === true,
+                  )
+                }
+                disabled={isLoading || isSaving}
+              />
+            )}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="typesafeScoringEnabled"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Use TypeSafe for scoring
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Score fit with TypeSafe (calibrated confidence) instead of the
+              LLM. The LLM still writes the brief and reason. No fallback: if
+              TypeSafe fails, the job is left unscored.
+            </p>
+          </div>
+        </div>
+
+        {currentTypesafeEnabled && (
+          <div className="space-y-3 pl-7">
+            <Controller
+              name="typesafeMinConfidence"
+              control={control}
+              render={({ field }) => (
+                <SettingsInput
+                  label="Minimum TypeSafe Confidence"
+                  type="number"
+                  inputProps={{
+                    ...field,
+                    inputMode: "decimal",
+                    min: 0,
+                    max: 1,
+                    step: 0.05,
+                    value: field.value ?? typesafeMinConfidence.default,
+                    onChange: (event) => {
+                      const value = Number(event.target.value);
+                      field.onChange(
+                        Number.isFinite(value)
+                          ? Math.min(1, Math.max(0, value))
+                          : null,
+                      );
+                    },
+                  }}
+                  disabled={isLoading || isSaving}
+                  helper="Jobs below the auto-skip threshold are not skipped when TypeSafe confidence is lower than this. (0-1)"
+                  current={`Effective: ${typesafeMinConfidence.effective} | Default: ${typesafeMinConfidence.default}`}
+                />
+              )}
+            />
+            <Controller
+              name="typesafeModel"
+              control={control}
+              render={({ field }) => (
+                <SettingsInput
+                  label="TypeSafe Model"
+                  inputProps={{
+                    ...field,
+                    value: field.value ?? typesafeModel.default,
+                    onChange: (event) => field.onChange(event.target.value),
+                  }}
+                  disabled={isLoading || isSaving}
+                  helper={`TypeSafe model id. Default: ${typesafeModel.default}.`}
+                  current={`Effective: ${typesafeModel.effective} | Default: ${typesafeModel.default}`}
+                />
+              )}
+            />
+            <Controller
+              name="typesafeApiKey"
+              control={control}
+              render={({ field }) => (
+                <SettingsInput
+                  label="TypeSafe API Key"
+                  type="password"
+                  inputProps={{
+                    ...field,
+                    value: field.value ?? "",
+                    autoComplete: "off",
+                  }}
+                  disabled={isLoading || isSaving}
+                  helper="Stored per workspace. Leave blank to keep the current key."
+                  current={`Configured: ${typesafeApiKeyHint ? "Yes" : "No"}`}
+                />
+              )}
+            />
+          </div>
+        )}
 
         <Separator />
 

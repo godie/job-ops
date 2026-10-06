@@ -109,6 +109,10 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: [],
+  typesafeScoringEnabled: null,
+  typesafeMinConfidence: null,
+  typesafeModel: null,
+  typesafeApiKey: "",
   ghostwriterSystemPromptTemplate: "",
   tailoringPromptTemplate: "",
   scoringPromptTemplate: "",
@@ -336,6 +340,10 @@ const SECTION_FIELD_MAP: Record<
     "missingSalaryPenalty",
     "autoSkipScoreThreshold",
     "blockedCompanyKeywords",
+    "typesafeScoringEnabled",
+    "typesafeMinConfidence",
+    "typesafeModel",
+    "typesafeApiKey",
   ],
   "reactive-resume": [
     "pdfRenderer",
@@ -456,6 +464,10 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: null,
+  typesafeScoringEnabled: null,
+  typesafeMinConfidence: null,
+  typesafeModel: null,
+  typesafeApiKey: null,
   ghostwriterSystemPromptTemplate: null,
   tailoringPromptTemplate: null,
   scoringPromptTemplate: null,
@@ -525,6 +537,10 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   missingSalaryPenalty: data.missingSalaryPenalty.override,
   autoSkipScoreThreshold: data.autoSkipScoreThreshold.override,
   blockedCompanyKeywords: data.blockedCompanyKeywords.override ?? [],
+  typesafeScoringEnabled: data.typesafeScoringEnabled.override,
+  typesafeMinConfidence: data.typesafeMinConfidence.override,
+  typesafeModel: data.typesafeModel.override,
+  typesafeApiKey: "",
   ghostwriterSystemPromptTemplate:
     data.ghostwriterSystemPromptTemplate.value ?? "",
   tailoringPromptTemplate: data.tailoringPromptTemplate.value ?? "",
@@ -766,6 +782,19 @@ const getDerivedSettings = (settings: AppSettings | null) => {
         effective: settings?.blockedCompanyKeywords?.value ?? [],
         default: settings?.blockedCompanyKeywords?.default ?? [],
       },
+      typesafeScoringEnabled: {
+        effective: settings?.typesafeScoringEnabled?.value ?? false,
+        default: settings?.typesafeScoringEnabled?.default ?? false,
+      },
+      typesafeMinConfidence: {
+        effective: settings?.typesafeMinConfidence?.value ?? 0.7,
+        default: settings?.typesafeMinConfidence?.default ?? 0.7,
+      },
+      typesafeModel: {
+        effective: settings?.typesafeModel?.value ?? "jev-latest",
+        default: settings?.typesafeModel?.default ?? "jev-latest",
+      },
+      typesafeApiKeyHint: settings?.typesafeApiKeyHint ?? null,
     },
     promptTemplates: {
       ghostwriterSystemPromptTemplate: {
@@ -1300,6 +1329,19 @@ export const SettingsPage: React.FC = () => {
             ? null
             : normalized;
         })(),
+        typesafeScoringEnabled: nullIfSame(
+          data.typesafeScoringEnabled,
+          scoring.typesafeScoringEnabled.default,
+        ),
+        typesafeMinConfidence: nullIfSame(
+          data.typesafeMinConfidence,
+          scoring.typesafeMinConfidence.default,
+        ),
+        typesafeModel: nullIfSame(
+          normalizeString(data.typesafeModel),
+          scoring.typesafeModel.default,
+        ),
+        typesafeApiKey: normalizePrivateInput(data.typesafeApiKey),
         ghostwriterSystemPromptTemplate: nullIfSame(
           normalizeString(data.ghostwriterSystemPromptTemplate),
           promptTemplates.ghostwriterSystemPromptTemplate.default,

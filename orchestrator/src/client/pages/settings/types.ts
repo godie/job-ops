@@ -62,6 +62,10 @@ export type ScoringValues = {
   missingSalaryPenalty: EffectiveDefault<number>;
   autoSkipScoreThreshold: EffectiveDefault<number | null>;
   blockedCompanyKeywords: EffectiveDefault<string[]>;
+  typesafeScoringEnabled: EffectiveDefault<boolean>;
+  typesafeMinConfidence: EffectiveDefault<number>;
+  typesafeModel: EffectiveDefault<string>;
+  typesafeApiKeyHint: string | null;
 };
 
 export type PromptTemplatesValues = {

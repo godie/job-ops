@@ -268,6 +268,7 @@ export const jobs = sqliteTable(
     outcome: text("outcome", { enum: APPLICATION_OUTCOMES }),
     closedAt: integer("closed_at", { mode: "number" }),
     suitabilityScore: real("suitability_score"),
+    suitabilityConfidence: real("suitability_confidence"),
     suitabilityReason: text("suitability_reason"),
     jobBrief: text("job_brief"),
     tailoredSummary: text("tailored_summary"),

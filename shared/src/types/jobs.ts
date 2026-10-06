@@ -201,6 +201,7 @@ export interface Job {
   outcome: JobOutcome | null;
   closedAt: number | null;
   suitabilityScore: number | null; // 0-100 AI-generated score
+  suitabilityConfidence: number | null; // 0-1 TypeSafe Score confidence (null when not TypeSafe)
   suitabilityReason: string | null; // AI explanation
   jobBrief: string | null; // Generated JD brief (JSON)
   tailoredSummary: string | null; // Generated resume summary
@@ -270,6 +271,7 @@ export type JobListItem = Pick<
   | "outcome"
   | "closedAt"
   | "suitabilityScore"
+  | "suitabilityConfidence"
   | "sponsorMatchScore"
   | "appliedDuplicateMatch"
   | "jobType"
@@ -563,6 +565,7 @@ export interface UpdateJobInput {
   jobDescription?: string | null;
   locationEvidence?: JobLocationEvidence | null;
   suitabilityScore?: number | null;
+  suitabilityConfidence?: number | null;
   suitabilityReason?: string;
   jobBrief?: string | null;
   tailoredSummary?: string;

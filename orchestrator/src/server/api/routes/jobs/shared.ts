@@ -74,6 +74,7 @@ export function toJobListItem(
     outcome: job.outcome,
     closedAt: job.closedAt,
     suitabilityScore: job.suitabilityScore,
+    suitabilityConfidence: job.suitabilityConfidence ?? null,
     sponsorMatchScore: job.sponsorMatchScore,
     jobType: job.jobType,
     jobFunction: job.jobFunction,

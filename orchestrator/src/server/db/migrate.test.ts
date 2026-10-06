@@ -375,4 +375,114 @@ describe.sequential("database migrations", () => {
       },
     );
   });
+
+  it("adds suitability_confidence to an existing jobs table", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
+    const script = `
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import Database from "better-sqlite3";
+
+      const dbPath = join(process.env.DATA_DIR, "jobs.db");
+      const sqlite = new Database(dbPath);
+      sqlite.exec(\`
+        CREATE TABLE jobs (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
+          source TEXT NOT NULL DEFAULT 'gradcracker',
+          source_job_id TEXT,
+          job_url_direct TEXT,
+          date_posted TEXT,
+          job_type TEXT,
+          salary_source TEXT,
+          salary_interval TEXT,
+          salary_min_amount REAL,
+          salary_max_amount REAL,
+          salary_currency TEXT,
+          is_remote INTEGER,
+          job_level TEXT,
+          job_function TEXT,
+          listing_type TEXT,
+          emails TEXT,
+          company_industry TEXT,
+          company_logo TEXT,
+          company_url_direct TEXT,
+          company_addresses TEXT,
+          company_num_employees TEXT,
+          company_revenue TEXT,
+          company_description TEXT,
+          skills TEXT,
+          experience_range TEXT,
+          company_rating REAL,
+          company_reviews_count INTEGER,
+          vacancy_count INTEGER,
+          work_from_home_type TEXT,
+          title TEXT NOT NULL,
+          employer TEXT NOT NULL,
+          employer_url TEXT,
+          job_url TEXT NOT NULL,
+          application_link TEXT,
+          disciplines TEXT,
+          deadline TEXT,
+          salary TEXT,
+          location TEXT,
+          location_evidence TEXT,
+          degree_required TEXT,
+          starting TEXT,
+          job_description TEXT,
+          status TEXT NOT NULL DEFAULT 'discovered' CHECK(status IN ('discovered', 'processing', 'ready', 'applied', 'in_progress', 'skipped', 'expired')),
+          outcome TEXT,
+          closed_at INTEGER,
+          suitability_score REAL,
+          suitability_reason TEXT,
+          job_brief TEXT,
+          tailored_summary TEXT,
+          tailored_headline TEXT,
+          tailored_skills TEXT,
+          selected_project_ids TEXT,
+          pdf_path TEXT,
+          pdf_source TEXT CHECK(pdf_source IN ('generated', 'uploaded')),
+          pdf_regenerating INTEGER NOT NULL DEFAULT 0,
+          pdf_fingerprint TEXT,
+          pdf_generated_at TEXT,
+          tracer_links_enabled INTEGER NOT NULL DEFAULT 0,
+          discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+          processed_at TEXT,
+          ready_at TEXT,
+          applied_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      \`);
+      sqlite.close();
+
+      await import(pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href);
+
+      const migratedDb = new Database(dbPath);
+      const columns = migratedDb.prepare("PRAGMA table_info(jobs)").all();
+      if (!columns.some((column) => column.name === "suitability_confidence")) {
+        throw new Error("suitability_confidence column missing after migration");
+      }
+      migratedDb
+        .prepare("INSERT INTO jobs(id, title, employer, job_url, suitability_confidence) VALUES (?, ?, ?, ?, ?)")
+        .run("job-confidence", "Role", "Acme", "https://example.com/confidence", 0.9);
+      migratedDb.close();
+
+      // The jobs table is rebuilt on every boot; the stored value must survive a re-run.
+      await import(\`\${pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href}?run=again\`);
+
+      const reMigratedDb = new Database(dbPath, { readonly: true });
+      const row = reMigratedDb.prepare("SELECT suitability_confidence AS confidence FROM jobs WHERE id = ?").get("job-confidence");
+      if (row?.confidence !== 0.9) {
+        throw new Error(\`suitability_confidence lost after re-running migrations: \${row?.confidence}\`);
+      }
+      reMigratedDb.close();
+    `;
+
+    execFileSync(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { env: { ...process.env, DATA_DIR: tempDir }, stdio: "pipe" },
+    );
+  });
 });

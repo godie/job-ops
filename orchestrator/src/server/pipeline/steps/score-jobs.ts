@@ -42,6 +42,15 @@ export async function scoreJobsStep(args: {
     ? parseInt(autoSkipThresholdRaw, 10)
     : null;
 
+  const typesafeMinConfidenceRaw = await settingsRepo.getSetting(
+    "typesafeMinConfidence",
+  );
+  const typesafeMinConfidence =
+    typesafeMinConfidenceRaw != null &&
+    !Number.isNaN(Number(typesafeMinConfidenceRaw))
+      ? Number(typesafeMinConfidenceRaw)
+      : 0.7;
+
   updateProgress({
     step: "scoring",
     jobsDiscovered: unprocessedJobs.length,
@@ -132,7 +141,13 @@ export async function scoreJobsStep(args: {
         );
         return;
       }
-      const { score, reason, jobBrief, jobUpdates = {} } = scoringResult;
+      const {
+        score,
+        confidence,
+        reason,
+        jobBrief,
+        jobUpdates = {},
+      } = scoringResult;
       if (args.shouldCancel?.()) return;
 
       let sponsorMatchScore = 0;
@@ -157,11 +172,13 @@ export async function scoreJobsStep(args: {
         score !== null &&
         autoSkipThreshold !== null &&
         !Number.isNaN(autoSkipThreshold) &&
-        score < autoSkipThreshold;
+        score < autoSkipThreshold &&
+        (confidence === null || confidence >= typesafeMinConfidence);
 
       await jobsRepo.updateJob(job.id, {
         ...jobUpdates,
         suitabilityScore: score,
+        suitabilityConfidence: confidence,
         suitabilityReason: reason,
         jobBrief,
         sponsorMatchScore,

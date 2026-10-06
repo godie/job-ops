@@ -101,6 +101,58 @@ describe("scoreJobsStep auto-skip behavior", () => {
     );
   });
 
+  it("does not auto-skip on low score when TypeSafe confidence is below the threshold", async () => {
+    const settingsRepo = await import("@server/repositories/settings");
+    const jobsRepo = await import("@server/repositories/jobs");
+    const scorer = await import("@server/services/scorer");
+
+    vi.mocked(settingsRepo.getSetting).mockImplementation(async (key) => {
+      if (key === "autoSkipScoreThreshold") return "60";
+      if (key === "typesafeMinConfidence") return "0.7";
+      return null;
+    });
+    vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
+      score: 30,
+      confidence: 0.4,
+      reason: "Low fit",
+      jobBrief: null,
+    });
+
+    await scoreJobsStep({ profile: {} });
+
+    const updateArgs = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
+      suitabilityConfidence?: number | null;
+      status?: string;
+    };
+    expect(updateArgs.suitabilityConfidence).toBe(0.4);
+    expect(updateArgs.status).toBeUndefined();
+  });
+
+  it("auto-skips on low score when confidence is high enough", async () => {
+    const settingsRepo = await import("@server/repositories/settings");
+    const jobsRepo = await import("@server/repositories/jobs");
+    const scorer = await import("@server/services/scorer");
+
+    vi.mocked(settingsRepo.getSetting).mockImplementation(async (key) => {
+      if (key === "autoSkipScoreThreshold") return "60";
+      if (key === "typesafeMinConfidence") return "0.7";
+      return null;
+    });
+    vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
+      score: 30,
+      confidence: 0.9,
+      reason: "Low fit",
+      jobBrief: null,
+    });
+
+    await scoreJobsStep({ profile: {} });
+
+    const updateArgs = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
+      status?: string;
+    };
+    expect(updateArgs.status).toBe("skipped");
+  });
+
   it("uses the selected run country for visa sponsor matching", async () => {
     const visaSponsors = await import("@server/services/visa-sponsors/index");
 

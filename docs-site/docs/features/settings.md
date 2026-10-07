@@ -270,19 +270,22 @@ five described levels; the confidence tells you how concentrated that judgment w
 
 ### How to use it
 
-1. Go to **Settings → Scoring**.
+1. Go to **Settings → Scoring Settings**.
 2. Enable **Use TypeSafe for scoring**.
 3. Paste your TypeSafe API key (from https://console.typesafe.ai/keys).
 4. Optionally set **Minimum TypeSafe Confidence** (default `0.7`).
 
 When enabled, the LLM still writes the job brief and reason, but the score is
-TypeSafe's. If TypeSafe is not configured or fails, the job is left unscored and
-retried on the next run — there is no fallback to the LLM score.
+TypeSafe's (the "penalize missing salary" adjustment, if enabled, still applies on
+top). There is no fallback to the LLM score.
 
 ### Common problems
 
-- **Jobs stay unscored:** the API key is missing or invalid, or the TypeSafe API is
-  failing. Check **Settings → Scoring** and the server logs.
+- **The run stops with a configuration error:** TypeSafe scoring is enabled but the
+  API key is missing or invalid. Add a valid key in **Settings → Scoring Settings**, or
+  turn TypeSafe scoring off.
+- **Jobs stay unscored:** the TypeSafe API is failing (network or HTTP error). Those
+  jobs are left unscored and retried on the next run.
 - **Jobs are not auto-skipped:** the auto-skip threshold is set, but TypeSafe
   confidence was below **Minimum TypeSafe Confidence**, so the job is kept for review.
 

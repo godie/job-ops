@@ -4,7 +4,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { config as loadDotenv } from "dotenv";
 import { defineConfig } from "vite";
+
+// Reuse the root .env (same file the server loads) so dev ports are configurable.
+loadDotenv({ path: path.resolve(__dirname, "..", ".env") });
+const apiPort = process.env.PORT || "3001";
+const webPort = Number(process.env.WEB_PORT || "5173");
 
 function readAppVersion(): string {
   const packageJsonPath = new URL("./package.json", import.meta.url);
@@ -76,18 +82,20 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // Bind to all interfaces so the dev server is reachable on the LAN.
+    host: true,
+    port: webPort,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
       "/pdfs": {
-        target: "http://localhost:3001",
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
       "/stats": {
-        target: "http://localhost:3001",
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
     },

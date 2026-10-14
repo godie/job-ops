@@ -1,11 +1,15 @@
 import { logger } from "@infra/logger";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
-import { mapGlmProviderAlias } from "@shared/settings-registry";
+import {
+  DEFAULT_OPENCODE_MODEL,
+  mapGlmProviderAlias,
+} from "@shared/settings-registry";
 import { toStringOrNull } from "@shared/utils/type-conversion";
 import { ClaudeCliClient } from "./claude-cli/client";
 import { CodexClient } from "./codex/client";
 import { GeminiCliClient } from "./gemini-cli/client";
+import { OpenCodeClient } from "./opencode/service";
 import {
   buildModeCacheKey,
   getOrderedModes,
@@ -46,6 +50,7 @@ export class LlmService {
   private readonly codexClient: CodexClient;
   private readonly geminiCliClient: GeminiCliClient;
   private readonly claudeCliClient: ClaudeCliClient;
+  private readonly openCodeClient: OpenCodeClient;
 
   constructor(options: LlmServiceOptions = {}) {
     const normalizedBaseUrl =
@@ -92,6 +97,7 @@ export class LlmService {
     this.codexClient = new CodexClient();
     this.geminiCliClient = new GeminiCliClient();
     this.claudeCliClient = new ClaudeCliClient();
+    this.openCodeClient = new OpenCodeClient(this.apiKey);
   }
 
   async callJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
@@ -111,6 +117,10 @@ export class LlmService {
 
     if (this.provider === "claude_cli") {
       return this.callClaudeCliJson(options);
+    }
+
+    if (this.provider === "opencode") {
+      return this.callOpenCodeJson(options);
     }
 
     if (this.strategy.requiresApiKey && !this.apiKey) {
@@ -182,6 +192,10 @@ export class LlmService {
 
     if (this.provider === "claude_cli") {
       return this.claudeCliClient.validateCredentials();
+    }
+
+    if (this.provider === "opencode") {
+      return this.openCodeClient.validateCredentials();
     }
 
     if (this.strategy.requiresApiKey && !this.apiKey) {
@@ -257,6 +271,11 @@ export class LlmService {
 
     if (this.provider === "claude_cli") {
       const models = await this.claudeCliClient.listModels();
+      return sortModels(models, getPreferredModel(this.provider));
+    }
+
+    if (this.provider === "opencode") {
+      const models = await this.openCodeClient.listModels();
       return sortModels(models, getPreferredModel(this.provider));
     }
 
@@ -419,6 +438,49 @@ export class LlmService {
             jobId: jobId ?? "unknown",
             attempt: attempt + 1,
             maxRetries,
+            message,
+          });
+          continue;
+        }
+
+        return { success: false, error: message };
+      }
+    }
+
+    return { success: false, error: "All retry attempts failed" };
+  }
+
+  private async callOpenCodeJson<T>(
+    options: LlmRequestOptions<T>,
+  ): Promise<LlmResponse<T>> {
+    const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          logger.info("LLM retry attempt", {
+            jobId: jobId ?? "unknown",
+            attempt,
+            maxRetries,
+          });
+          await sleep(getRetryDelayMs(retryDelayMs, attempt));
+        }
+
+        const data = await this.openCodeClient.callJson<T>({
+          ...options,
+          signal,
+        });
+        return { success: true, data };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const status = (error as LlmApiError).status;
+
+        if (attempt < maxRetries && shouldRetryAttempt({ message, status })) {
+          logger.warn("OpenCode attempt failed, retrying", {
+            jobId: jobId ?? "unknown",
+            attempt: attempt + 1,
+            maxRetries,
+            status: status ?? "no-status",
             message,
           });
           continue;
@@ -761,6 +823,7 @@ function normalizeProvider(
   if (normalized === "lmstudio") return "lmstudio";
   if (normalized === "ollama") return "ollama";
   if (normalized === "codex") return "codex";
+  if (normalized === "opencode") return "opencode";
   if (normalized === "requesty") return "requesty";
   if (normalized === "orcarouter") return "orcarouter";
   if (normalized && normalized !== "openrouter") {
@@ -822,6 +885,7 @@ function getPreferredModel(provider: LlmProvider): string | null {
     return "google/gemini-3-flash-preview";
   }
   if (provider === "claude_cli") return "claude-sonnet-5";
+  if (provider === "opencode") return DEFAULT_OPENCODE_MODEL;
   return null;
 }
 

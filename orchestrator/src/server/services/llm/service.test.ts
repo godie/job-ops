@@ -126,6 +126,15 @@ describe("LlmService provider normalization", () => {
     expect(llm.getBaseUrl()).toBe("");
   });
 
+  it("supports opencode provider normalization", () => {
+    const llm = new LlmService({
+      provider: "opencode",
+    });
+
+    expect(llm.getProvider()).toBe("opencode");
+    expect(llm.getBaseUrl()).toBe("");
+  });
+
   it("supports GLM provider normalization and aliases", () => {
     const glm = new LlmService({
       provider: "glm",

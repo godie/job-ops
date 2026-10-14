@@ -35,6 +35,7 @@ export const LLM_PROVIDERS = [
   "gemini_cli",
   "claude_cli",
   "codex",
+  "opencode",
 ] as const;
 
 export type LlmProviderId = (typeof LLM_PROVIDERS)[number];
@@ -49,6 +50,7 @@ export const LLM_MODEL_SUGGESTION_PROVIDERS = [
   "ollama",
   "requesty",
   "orcarouter",
+  "opencode",
 ] as const;
 
 export const LLM_PROVIDER_LABELS: Record<LlmProviderId, string> = {
@@ -66,6 +68,7 @@ export const LLM_PROVIDER_LABELS: Record<LlmProviderId, string> = {
   gemini_cli: "Gemini (CLI)",
   claude_cli: "Claude (CLI)",
   codex: "Codex",
+  opencode: "OpenCode",
 };
 
 const PROVIDERS_WITH_API_KEY = new Set<LlmProviderId>([
@@ -80,7 +83,10 @@ const PROVIDERS_WITH_API_KEY = new Set<LlmProviderId>([
   "gemini",
 ]);
 
-const PROVIDERS_WITH_OPTIONAL_API_KEY = new Set<LlmProviderId>(["ollama"]);
+const PROVIDERS_WITH_OPTIONAL_API_KEY = new Set<LlmProviderId>([
+  "ollama",
+  "opencode",
+]);
 
 const PROVIDERS_WITH_BASE_URL = new Set<LlmProviderId>([
   "lmstudio",
@@ -114,6 +120,8 @@ const PROVIDER_HINTS: Record<LlmProviderId, string> = {
     "Claude (CLI) runs the official Claude Code CLI on this host using your subscription token or API key — no JobOps LLM key.",
   codex:
     "Codex runs through a local app-server process and uses your Codex login session.",
+  opencode:
+    "OpenCode runs a local server that brokers many providers. JobOps discovers its URL and password from service.json, or you can set OPENCODE_URL and OPENCODE_PASSWORD. The password field is optional.",
 };
 
 const PROVIDER_KEY_HELPERS: Record<
@@ -166,6 +174,9 @@ const PROVIDER_KEY_HELPERS: Record<
     text: "Authenticate with the Claude CLI (claude setup-token); see docs link below",
   },
   codex: { text: "No API key required when Codex is authenticated locally" },
+  opencode: {
+    text: "Password is discovered from service.json or OPENCODE_PASSWORD; only store one to override",
+  },
 };
 
 const BASE_URL_PROVIDERS = [

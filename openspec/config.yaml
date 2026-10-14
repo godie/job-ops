@@ -1,0 +1,84 @@
+schema: spec-driven
+
+# Project-wide constraints that shape every artifact and workflow.
+# Keep only non-inferable facts an agent needs while drafting, applying, and archiving.
+context: |
+  JobOps is a self-hosted, multi-tenant job-search app: search 10+ job boards,
+  AI-score fit, tailor the CV, generate a PDF, and track applications. It never
+  auto-applies. Monorepo: `orchestrator` (Express server + React client),
+  `extractors/` (per-board extractor workspaces), `shared`, `visa-sponsor-providers`.
+
+  Non-negotiable server-side invariants:
+  - Multi-tenancy by default: scope storage, caches, files, queues, locks, rate
+    limits, and long-lived state by tenant/workspace unless the data is explicitly
+    global; never hold tenant-specific data in module-level caches without a
+    tenant-scoped key.
+  - API contract for `/api/*`: success `{ ok: true, data, meta? }`; error
+    `{ ok: false, error: { code, message, details? }, meta: { requestId } }`.
+    Codes: 400 INVALID_REQUEST, 401 UNAUTHORIZED, 403 FORBIDDEN, 404 NOT_FOUND,
+    408 REQUEST_TIMEOUT, 409 CONFLICT, 422 UNPROCESSABLE_ENTITY, 500 INTERNAL_ERROR,
+    502 UPSTREAM_ERROR, 503 SERVICE_UNAVAILABLE.
+  - Correlation IDs: honor inbound `x-request-id` or generate one, always return
+    it, include it in responses and logs, and propagate `pipelineRunId`/`jobId`
+    into async flows.
+  - Logging: use the shared logger (`orchestrator/src/server/infra/logger.ts`) and
+    never `console.*` in core paths; log structured objects with context fields.
+  - Sanitize/redact before logging or returning `details` (authorization, cookie,
+    password, secret, token, apiKey); truncate large payloads; never throw or log
+    raw upstream or webhook bodies.
+  - SSE: reuse `orchestrator/src/server/infra/sse.ts` (server) and
+    `orchestrator/src/client/lib/sse.ts` (client) instead of hand-rolled transport.
+  - External payloads: webhooks and LLM prompts send only required, whitelisted
+    fields and minimize PII; document new integrations.
+  - User-visible changes require docs updates (feature page: What it is / Why it
+    exists / How to use / Common problems / Related pages; frontmatter keys `id`,
+    `title`, `description`, `sidebar_position`; link related pages via `/docs/...`).
+
+  If `.codegraph/` exists at the repo root, use CodeGraph (`codegraph explore` or
+  the MCP tool) to locate code before falling back to grep/find.
+
+# Artifact-specific rules (constraints for the author, never copied into artifacts).
+rules:
+  proposal:
+    - State what is out of scope.
+    - Call out multi-tenant impact and `/api/*` contract impact, plus any new or
+      changed webhook/LLM payload.
+  specs:
+    - Write deltas, not the full main spec, under the existing capability path.
+    - For affected `/api/*` routes, specify the `{ ok, data/error, meta.requestId }`
+      contract and the tenant/workspace scoping.
+  design:
+    - Cover tenant scoping, correlation-ID propagation, and sanitization/redaction.
+    - Reuse the shared logger and SSE helpers instead of introducing new transport.
+  tasks:
+    - Include a step to run the CI-parity checks (see apply guidance) and docs
+      updates when the behavior is user-visible.
+    - When touching shared repositories, services, auth/session, profile/resume,
+      PDF, ghostwriter/tailoring, pipeline state, or settings, include cross-tenant
+      regression coverage.
+    - If adding an extractor under `extractors/`, then update `docker-compose.yml`
+      develop/watch sync entries, copy its `package*.json` before `npm install` and
+      the directory itself in all relevant `Dockerfile` stages, and extend
+      `orchestrator/src/server/extractors/deployment.test.ts`.
+
+# How apply and archive should be conducted.
+operations:
+  apply:
+    guidance:
+      - Verify with the CI-parity checks from the repository root.
+        `./orchestrator/node_modules/.bin/biome ci .`, `npm run check:types:shared`,
+        `npm --workspace orchestrator run check:types`,
+        `npm --workspace gradcracker-extractor run check:types`,
+        `npm --workspace ukvisajobs-extractor run check:types`,
+        `npm --workspace orchestrator run build:client`,
+        `npm --workspace orchestrator run test:run`.
+      - Run targeted tests for touched modules first, then the full list; a change
+        is valid only when every required check passes with no ignored failures.
+      - If `better-sqlite3` fails with a Node ABI mismatch, rebuild it
+        (`npm --workspace orchestrator rebuild better-sqlite3`); CI runs on Node 22.
+      - Do not add `console.*` in core paths or log raw sensitive payloads.
+  archive:
+    guidance:
+      - Ensure the spec deltas reflect shipped behavior before archiving.
+      - Confirm user-visible changes have docs updates, then summarize the archive
+        outcome.

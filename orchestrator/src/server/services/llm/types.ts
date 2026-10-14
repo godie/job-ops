@@ -12,7 +12,8 @@ export type LlmProvider =
   | "gemini"
   | "gemini_cli"
   | "claude_cli"
-  | "codex";
+  | "codex"
+  | "opencode";
 
 export type ResponseMode = "json_schema" | "json_object" | "text" | "none";
 

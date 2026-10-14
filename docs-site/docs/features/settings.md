@@ -294,6 +294,47 @@ top). There is no fallback to the LLM score.
 - [Orchestrator pipeline](/docs/features/orchestrator)
 - [Settings](/docs/features/settings)
 
+## OpenCode provider
+
+### What it is
+
+An LLM provider that routes JobOps generation through a local **OpenCode** server. OpenCode
+brokers many upstream models (its own catalogue, OpenRouter, Ollama, and free models)
+behind one Basic-auth HTTP API, so JobOps can use any of them without configuring each
+provider's key separately.
+
+### Why it exists
+
+It lets every LLM-backed feature (scoring, tailoring, ghostwriter, email classification)
+reuse one local server and its model catalogue — including a free model — instead of
+managing per-provider keys and per-provider quotas.
+
+### How to use it
+
+1. Run an OpenCode 2.x server locally (`opencode serve`). JobOps discovers its URL and
+   password from the OpenCode service registration (`service.json`), or from
+   `OPENCODE_URL` and `OPENCODE_PASSWORD`.
+2. Go to **Settings → Model**, set **Provider** to **OpenCode**.
+3. Pick a model in `providerID/modelID` form (for example `opencode/space-bunny-free`).
+   The default is a free model.
+4. Save. JobOps calls only the server's session-less generation endpoint; it never runs
+   the server's tools.
+
+### Common problems
+
+- **The run pauses with a configuration error:** the OpenCode server URL or password
+  could not be resolved. Check that the server is running and that `service.json` (or
+  `OPENCODE_URL`/`OPENCODE_PASSWORD`) is set.
+- **Credentials rejected (401):** the password does not match the running server. Fix
+  `service.json` or `OPENCODE_PASSWORD`.
+- **A non-loopback server is refused:** JobOps refuses to send Basic credentials over
+  plaintext to a remote host. Use an HTTPS endpoint or a tunnel.
+
+### Related pages
+
+- [Orchestrator pipeline](/docs/features/orchestrator)
+- [Settings](/docs/features/settings)
+
 ## API examples
 
 ```bash

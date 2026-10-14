@@ -105,7 +105,8 @@ function getDefaultBaseUrlForProvider(
   if (
     normalized === "gemini_cli" ||
     normalized === "claude_cli" ||
-    normalized === "codex"
+    normalized === "codex" ||
+    normalized === "opencode"
   )
     return null;
   if (normalized === "requesty") return "https://router.requesty.ai/v1";

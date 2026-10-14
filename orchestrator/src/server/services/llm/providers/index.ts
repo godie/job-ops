@@ -10,6 +10,7 @@ import { lmStudioStrategy } from "./lmstudio";
 import { ollamaStrategy } from "./ollama";
 import { openAiStrategy } from "./openai";
 import { openAiCompatibleStrategy } from "./openai-compatible";
+import { openCodeStrategy } from "./opencode";
 import { openRouterStrategy } from "./openrouter";
 import { orcaRouterStrategy } from "./orcarouter";
 import { requestyStrategy } from "./requesty";
@@ -29,4 +30,5 @@ export const strategies: Record<LlmProvider, ProviderStrategy> = {
   gemini_cli: geminiCliStrategy,
   claude_cli: claudeCliStrategy,
   codex: codexStrategy,
+  opencode: openCodeStrategy,
 };

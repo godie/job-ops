@@ -33,10 +33,17 @@ export function resolveLlmApiKey(options: {
 
   if (options.allowEnvironmentCredentials === false) return null;
 
+  const provider = normalizeProviderName(options.provider);
+
+  // The OpenCode password is a server credential, not an upstream LLM key, so
+  // it never inherits the generic LLM_API_KEY.
+  if (provider === "opencode") {
+    return toStringOrNull(getOriginalEnvValue("OPENCODE_PASSWORD"));
+  }
+
   const envApiKey = toStringOrNull(getOriginalEnvValue("LLM_API_KEY"));
   if (envApiKey) return envApiKey;
 
-  const provider = normalizeProviderName(options.provider);
   if (
     (provider === "atlascloud" || provider === "atlas_cloud") &&
     toStringOrNull(getOriginalEnvValue("ATLASCLOUD_API_KEY"))

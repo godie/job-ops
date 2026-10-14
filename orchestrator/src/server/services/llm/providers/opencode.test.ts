@@ -207,6 +207,16 @@ describe("opencode endpoint discovery", () => {
     });
   });
 
+  it("prefers the env password over a stored (generic) LLM key", async () => {
+    envSetup();
+    await expect(
+      resolveOpenCodeEndpoint({ storedPassword: "stale-gemini-key" }),
+    ).resolves.toEqual({
+      baseUrl: "http://127.0.0.1:4096",
+      password: PASSWORD,
+    });
+  });
+
   it("fails with a configuration error when nothing is configured", async () => {
     await expect(resolveOpenCodeEndpoint()).rejects.toBeInstanceOf(
       OpenCodeConfigurationError,

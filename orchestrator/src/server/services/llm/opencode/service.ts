@@ -99,8 +99,8 @@ export async function resolveOpenCodeEndpoint(options?: {
     registration?.url || getOriginalEnvValue("OPENCODE_URL")?.trim() || "";
   const password =
     registration?.password ||
-    options?.storedPassword?.trim() ||
     getOriginalEnvValue("OPENCODE_PASSWORD") ||
+    options?.storedPassword?.trim() ||
     "";
 
   if (!baseUrl) {

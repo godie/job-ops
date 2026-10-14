@@ -329,6 +329,9 @@ managing per-provider keys and per-provider quotas.
   `service.json` or `OPENCODE_PASSWORD`.
 - **A non-loopback server is refused:** JobOps refuses to send Basic credentials over
   plaintext to a remote host. Use an HTTPS endpoint or a tunnel.
+- **A model returns 503 / "free tier can only be used from within OpenCode":** OpenCode's
+  free-tier models (`opencode/*-free`) only work inside the OpenCode app, not over the
+  API. Pick a subscription/provider model (for example `opencode-go/grok-4.7`).
 
 ### Related pages
 

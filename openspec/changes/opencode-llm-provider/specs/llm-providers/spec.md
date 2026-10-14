@@ -74,12 +74,19 @@ MUST NOT create or reuse sessions for ordinary generation.
 ### Requirement: Model selection and catalogue
 
 The provider MUST accept model identifiers in the form `providerID/modelID` and MUST
-apply a configurable default model when none is set. It MUST be able to list the
-server's available models so the UI can offer suggestions.
+apply a configurable default model when none is set. The default MUST be a model usable
+through the server's API: OpenCode's free-tier models (`providerID` `opencode`) are
+restricted to the OpenCode app and are rejected with a 503 over the API, so the default
+is a subscription/provider model. The provider MUST be able to list the server's
+available models so the UI can offer suggestions.
 
 #### Scenario: Default model applied
 - **WHEN** no model is configured for the provider
-- **THEN** the provider uses its configured default model
+- **THEN** the provider uses its configured default model, which is usable over the API
+
+#### Scenario: Free-tier model rejected
+- **WHEN** a free-tier model (`opencode/*-free`) is selected
+- **THEN** the server rejects it and the provider surfaces a retryable error rather than silently failing
 
 #### Scenario: Catalogue available for suggestions
 - **WHEN** the UI requests model suggestions for the `opencode` provider

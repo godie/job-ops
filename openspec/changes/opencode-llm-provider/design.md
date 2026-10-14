@@ -100,9 +100,11 @@ still-invalid result is an error, never silently returned.
 
 ### D6 — Models as `providerID/modelID`
 
-Accept the OpenCode model identifier verbatim (`opencode/space-bunny-free`,
-`opencode-go/grok-4.7`, …). A configurable default (a free model by default) applies
-when unset. Expose `GET /api/model` for UI suggestions.
+Accept the OpenCode model identifier verbatim (`opencode-go/grok-4.7`, …). A configurable
+default applies when unset; it must be an API-usable model, because OpenCode's free-tier
+models (`opencode/*-free`) are restricted to the OpenCode app and return a 503 over the
+API ("free tier can only be used from within OpenCode"). Expose `GET /api/model` for UI
+suggestions.
 
 ### D7 — Flatten messages to one prompt
 

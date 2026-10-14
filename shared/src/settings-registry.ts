@@ -89,7 +89,7 @@ export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 export const DEFAULT_GLM_MODEL = "glm-5.1";
 export const DEFAULT_CODEX_MODEL = "gpt-5.4-mini";
 export const DEFAULT_CLAUDE_CLI_MODEL = "claude-sonnet-5";
-export const DEFAULT_OPENCODE_MODEL = "opencode/space-bunny-free";
+export const DEFAULT_OPENCODE_MODEL = "opencode-go/grok-4.7";
 
 export function getDefaultModelForProvider(
   provider: string | null | undefined,

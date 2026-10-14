@@ -131,12 +131,14 @@ generation.
 - **Alternative — session/agent path:** richer, but runs tools server-side. Rejected as
   unnecessary for plain generation and riskier.
 
-### D10 — Transport: loopback by default, secure when remote
+### D10 — Transport: local by default, secure when remote
 
 The OpenCode server binds to loopback by default (verified: `opencode serve` listens on
-`127.0.0.1`, not reachable on the LAN). When JobOps connects to a server on another host,
-the connection must use TLS or a tunnel; Basic credentials must never cross a network in
-plaintext.
+`127.0.0.1`, not reachable on the LAN). JobOps allows plaintext Basic auth to loopback
+and to Docker's host aliases (`host.docker.internal` / `gateway.docker.internal`), which
+reach the host over Docker's internal network rather than a public one (verified: a
+container reaches the host server at `host.docker.internal:49374`). Any other host must
+use TLS or a tunnel; Basic credentials must never cross a public network in plaintext.
 
 ## Risks / Trade-offs
 

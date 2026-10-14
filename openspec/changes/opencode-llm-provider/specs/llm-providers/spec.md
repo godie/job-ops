@@ -135,14 +135,20 @@ the server host.
 
 The OpenCode server endpoint MUST be operator-level configuration that a tenant cannot
 set or override, so a tenant cannot use JobOps to reach an arbitrary internal host. The
-server is expected to listen on loopback; when JobOps connects to a server on another
-host, the connection MUST use a secure transport (TLS or a tunnel) and MUST NOT send the
-credential in plaintext.
+server is expected to listen on loopback, or to be reached through Docker's host aliases
+(`host.docker.internal` / `gateway.docker.internal`), which are treated as local because
+they reach the host over Docker's internal network rather than a public one. When JobOps
+connects to a server on any other host, the connection MUST use a secure transport (TLS
+or a tunnel) and MUST NOT send the credential in plaintext.
 
 #### Scenario: Tenants cannot redirect the endpoint
 - **WHEN** a tenant configures their workspace
 - **THEN** they cannot set or override the OpenCode server endpoint
 
+#### Scenario: Local or Docker-host endpoint allowed over plaintext
+- **WHEN** the OpenCode server is on loopback or a Docker host alias
+- **THEN** the connection is allowed over http
+
 #### Scenario: Remote endpoint uses secure transport
-- **WHEN** the OpenCode server is configured on a host other than loopback
+- **WHEN** the OpenCode server is configured on a host other than loopback or a Docker host alias
 - **THEN** the connection uses a secure transport and the credential is not sent in plaintext

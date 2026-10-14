@@ -214,7 +214,7 @@ describe("opencode endpoint discovery", () => {
     await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not configured/i);
   });
 
-  it("rejects a non-loopback plaintext endpoint and accepts secure/loopback ones", () => {
+  it("rejects a non-local plaintext endpoint and accepts secure/loopback/docker-host ones", () => {
     expect(() =>
       assertSecureOpenCodeTransport("http://internal.example.com"),
     ).toThrow(OpenCodeConfigurationError);
@@ -226,6 +226,12 @@ describe("opencode endpoint discovery", () => {
     ).not.toThrow();
     expect(() =>
       assertSecureOpenCodeTransport("http://localhost:4096"),
+    ).not.toThrow();
+    expect(() =>
+      assertSecureOpenCodeTransport("http://host.docker.internal:49374"),
+    ).not.toThrow();
+    expect(() =>
+      assertSecureOpenCodeTransport("http://gateway.docker.internal:49374"),
     ).not.toThrow();
   });
 });

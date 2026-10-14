@@ -47,14 +47,21 @@ async function readServiceRegistration(): Promise<{
   }
 }
 
-export function isLoopbackHost(hostname: string): boolean {
+/**
+ * Hosts JobOps treats as local/trusted for plaintext Basic auth: loopback, plus
+ * the Docker host aliases (`host.docker.internal`, `gateway.docker.internal`),
+ * which reach the host over Docker's internal network rather than a public one.
+ */
+export function isTrustedLocalHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   return (
     host === "localhost" ||
     host === "::1" ||
     host === "127.0.0.1" ||
     host === "0.0.0.0" ||
-    host.endsWith(".localhost")
+    host.endsWith(".localhost") ||
+    host === "host.docker.internal" ||
+    host === "gateway.docker.internal"
   );
 }
 
@@ -72,9 +79,9 @@ export function assertSecureOpenCodeTransport(baseUrl: string): void {
     );
   }
   if (url.protocol === "https:") return;
-  if (url.protocol === "http:" && isLoopbackHost(url.hostname)) return;
+  if (url.protocol === "http:" && isTrustedLocalHost(url.hostname)) return;
   throw new OpenCodeConfigurationError(
-    "OpenCode server is not on loopback; refusing to send Basic credentials over plaintext. Use an HTTPS endpoint or a tunnel.",
+    "OpenCode server is not local; refusing to send Basic credentials over plaintext. Use an HTTPS endpoint or a tunnel.",
   );
 }
 

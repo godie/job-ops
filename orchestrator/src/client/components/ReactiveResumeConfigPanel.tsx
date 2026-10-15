@@ -1,3 +1,4 @@
+import { useIsSystemAdmin } from "@client/hooks/useIsSystemAdmin";
 import { BaseResumeSelection } from "@client/pages/settings/components/BaseResumeSelection";
 import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
 import {
@@ -147,6 +148,9 @@ export const ReactiveResumeConfigPanel: React.FC<
   v5,
   projectSelection,
 }) => {
+  // The RxResume URL is administrator-reserved (the server calls it), so it is not
+  // offered to a workspace member; the API key and base resume stay theirs.
+  const isSystemAdmin = useIsSystemAdmin();
   const hasProjectCatalog = Boolean(projectSelection?.projects.length);
   const canShowProjectSelection = Boolean(
     projectSelection && (hasRxResumeAccess || hasProjectCatalog),
@@ -301,25 +305,27 @@ export const ReactiveResumeConfigPanel: React.FC<
 
       {
         <div className="grid gap-4">
-          <SettingsInput
-            label="RxResume URL"
-            inputProps={{
-              name: "rxresumeUrl",
-              value: shared.baseUrl,
-              onChange: (event) =>
-                shared.onBaseUrlChange(event.currentTarget.value),
-            }}
-            type="url"
-            placeholder={
-              shared.baseUrlPlaceholder ?? "https://resume.example.com"
-            }
-            helper={
-              shared.baseUrlHelper ??
-              "Leave blank to use the default for the selected mode (or the RXRESUME_URL environment override, if set)."
-            }
-            disabled={disabled}
-            error={shared.baseUrlError}
-          />
+          {isSystemAdmin ? (
+            <SettingsInput
+              label="RxResume URL"
+              inputProps={{
+                name: "rxresumeUrl",
+                value: shared.baseUrl,
+                onChange: (event) =>
+                  shared.onBaseUrlChange(event.currentTarget.value),
+              }}
+              type="url"
+              placeholder={
+                shared.baseUrlPlaceholder ?? "https://resume.example.com"
+              }
+              helper={
+                shared.baseUrlHelper ??
+                "Leave blank to use the default for the selected mode (or the RXRESUME_URL environment override, if set)."
+              }
+              disabled={disabled}
+              error={shared.baseUrlError}
+            />
+          ) : null}
           <SettingsInput
             label="v5 API key"
             inputProps={{

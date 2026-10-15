@@ -3,6 +3,7 @@ import { ClaudeCliSetupHint } from "@client/components/ClaudeCliSetupHint";
 import { CodexAuthPanel } from "@client/components/CodexAuthPanel";
 import { GeminiCliSetupHint } from "@client/components/GeminiCliSetupHint";
 import PurposeOverrideCard from "@client/components/llmmodelconfiguration/PurposeOverrideCard";
+import { useIsSystemAdmin } from "@client/hooks/useIsSystemAdmin";
 import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
 import {
   formatSecretHint,
@@ -108,6 +109,9 @@ export function LlmModelConfiguration({
   const [modelsError, setModelsError] = useState<string | null>(null);
   const providerConfig = getLlmProviderConfig(selectedProvider);
   const { showApiKey, showBaseUrl } = providerConfig;
+  // The base URL is administrator-reserved (the server calls it), so a workspace
+  // member is not offered the field even when the provider normally shows it.
+  const isSystemAdmin = useIsSystemAdmin();
   const isCodexProvider = providerConfig.normalizedProvider === "codex";
   const isGeminiCliProvider =
     providerConfig.normalizedProvider === "gemini_cli";
@@ -338,7 +342,7 @@ export function LlmModelConfiguration({
             ) : null}
             {isGeminiCliProvider ? <GeminiCliSetupHint /> : null}
             {isClaudeCliProvider ? <ClaudeCliSetupHint /> : null}
-            {showBaseUrl ? (
+            {showBaseUrl && isSystemAdmin ? (
               <SettingsInput
                 label={mode === "compact" ? "Base URL" : "LLM base URL"}
                 inputProps={{

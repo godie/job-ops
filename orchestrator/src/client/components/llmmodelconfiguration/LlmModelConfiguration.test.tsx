@@ -1,8 +1,21 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { LlmModelConfiguration } from "./LlmModelConfiguration";
 
 vi.mock("@client/api", () => ({
+  getCurrentAuthUser: vi.fn().mockResolvedValue({
+    id: "user-1",
+    username: "test",
+    displayName: null,
+    isSystemAdmin: true,
+    isDisabled: false,
+    workspaceId: "tenant_default",
+    workspaceName: "JobOps",
+    createdAt: "2026-04-27T00:00:00.000Z",
+    updatedAt: "2026-04-27T00:00:00.000Z",
+  }),
   disconnectCodexAuth: vi.fn(),
   getCodexAuthStatus: vi.fn().mockResolvedValue({
     authenticated: false,
@@ -26,9 +39,22 @@ const textField = {
   onChange: vi.fn(),
 };
 
+// The component reads the current user to decide whether the base URL is offered,
+// so it needs a query client like the app provides.
+const renderWithQueryClient = (ui: React.ReactElement) =>
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
+
 describe("LlmModelConfiguration", () => {
   it("does not render an LLM API key affordance for Codex in compact mode", async () => {
-    render(
+    renderWithQueryClient(
       <LlmModelConfiguration
         mode="compact"
         disabled={false}
@@ -51,7 +77,7 @@ describe("LlmModelConfiguration", () => {
   });
 
   it("asks Ollama users to choose an installed model instead of using a default", async () => {
-    render(
+    renderWithQueryClient(
       <LlmModelConfiguration
         mode="compact"
         disabled={false}

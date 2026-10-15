@@ -219,6 +219,10 @@ Readiness requires:
   - RxResume API key
   - UKVisaJobs email/password
   - Adzuna app ID/app key
+- A workspace member can save their own workspace settings: LLM provider, key, and model, service credentials (RxResume, UKVisaJobs, Adzuna, Apify), scoring, prompt templates, writing style, and search preferences.
+- These settings stay reserved for a system admin, because the server itself calls or posts to them or they affect the whole server. A workspace member is not offered them:
+  - the backup schedule: `backupEnabled`, `backupHour`, `backupMaxCount`
+  - the outbound URLs: `rxresumeUrl`, `llmBaseUrl`, `pipelineWebhookUrl`, `jobCompleteWebhookUrl`
 - Manage workspace users when signed in as a system admin:
   - create a user with a private workspace
   - disable a user

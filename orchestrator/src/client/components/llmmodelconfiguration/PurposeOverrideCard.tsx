@@ -2,6 +2,7 @@ import * as api from "@client/api";
 import { ClaudeCliSetupHint } from "@client/components/ClaudeCliSetupHint";
 import { CodexAuthPanel } from "@client/components/CodexAuthPanel";
 import { GeminiCliSetupHint } from "@client/components/GeminiCliSetupHint";
+import { useIsSystemAdmin } from "@client/hooks/useIsSystemAdmin";
 import { getDefaultModelForProvider } from "@shared/settings-registry";
 import type {
   LlmProviderId,
@@ -77,6 +78,7 @@ export default function PurposeOverrideCard({
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const isSystemAdmin = useIsSystemAdmin();
   const baseUrlValue = value?.baseUrl ?? "";
   const modelValue = value?.model ?? "";
   const purposeProviderDefaultModel = hasProviderOverride
@@ -219,7 +221,7 @@ export default function PurposeOverrideCard({
         <ClaudeCliSetupHint />
       ) : null}
 
-      {hasProviderOverride && providerConfig.showBaseUrl ? (
+      {hasProviderOverride && providerConfig.showBaseUrl && isSystemAdmin ? (
         <SettingsInput
           label="Base URL"
           inputProps={{

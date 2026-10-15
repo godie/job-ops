@@ -891,6 +891,7 @@ export const SettingsPage: React.FC = () => {
     queryFn: api.getCurrentAuthUser,
     retry: false,
   });
+  const isSystemAdmin = currentUserQuery.data?.isSystemAdmin === true;
   const backupsQuery = useQuery({
     queryKey: queryKeys.backups.list(),
     queryFn: api.getBackups,
@@ -1526,10 +1527,11 @@ export const SettingsPage: React.FC = () => {
         items: group.items.filter(
           (item) =>
             (item.id !== "billing" || isHostedMode) &&
-            (canEditLlmSettings || item.id !== "model"),
+            (canEditLlmSettings || item.id !== "model") &&
+            (isSystemAdmin || item.id !== "backup"),
         ),
       })).filter((group) => group.items.length > 0),
-    [canEditLlmSettings, isHostedMode],
+    [canEditLlmSettings, isHostedMode, isSystemAdmin],
   );
 
   const filteredNavGroups = useMemo(

@@ -369,6 +369,7 @@ export const settingsRegistry = {
   },
   llmBaseUrl: {
     kind: "typed" as const,
+    adminOnly: true,
     envKey: "LLM_BASE_URL",
     schema: z.preprocess(
       (v) => (v === "" ? null : v),
@@ -395,6 +396,7 @@ export const settingsRegistry = {
   },
   pipelineWebhookUrl: {
     kind: "typed" as const,
+    adminOnly: true,
     schema: z.string().trim().max(2000),
     default: (): string =>
       typeof process !== "undefined"
@@ -406,6 +408,7 @@ export const settingsRegistry = {
   },
   jobCompleteWebhookUrl: {
     kind: "typed" as const,
+    adminOnly: true,
     schema: z.string().trim().max(2000),
     default: (): string =>
       typeof process !== "undefined"
@@ -830,6 +833,7 @@ export const settingsRegistry = {
   },
   backupEnabled: {
     kind: "typed" as const,
+    adminOnly: true,
     schema: z.boolean(),
     default: (): boolean => false,
     parse: parseBitBoolOrNull,
@@ -837,6 +841,7 @@ export const settingsRegistry = {
   },
   backupHour: {
     kind: "typed" as const,
+    adminOnly: true,
     schema: z.number().int().min(0).max(23),
     default: (): number => 2,
     parse: (raw: string | undefined): number | null => {
@@ -848,6 +853,7 @@ export const settingsRegistry = {
   },
   backupMaxCount: {
     kind: "typed" as const,
+    adminOnly: true,
     schema: z.number().int().min(1).max(5),
     default: (): number => 5,
     parse: (raw: string | undefined): number | null => {
@@ -952,6 +958,7 @@ export const settingsRegistry = {
   },
   rxresumeUrl: {
     kind: "string" as const,
+    adminOnly: true,
     envKey: "RXRESUME_URL",
     schema: z.preprocess(
       (value) => (value === "" ? null : value),
@@ -1018,6 +1025,17 @@ export const settingsRegistry = {
     target: "searchCities" as const,
   },
 } as const;
+
+/**
+ * Settings only a system administrator may write: the backup scheduler and the
+ * outbound URLs the server itself calls (SSRF surface, not a workspace preference).
+ * Server authorization and client visibility both derive from this.
+ */
+export const ADMIN_ONLY_SETTING_KEYS: ReadonlySet<string> = new Set(
+  Object.entries(settingsRegistry)
+    .filter(([, def]) => (def as { adminOnly?: boolean }).adminOnly === true)
+    .map(([key]) => key),
+);
 
 export type SettingsRegistry = typeof settingsRegistry;
 export type SettingsRegistryKey = keyof SettingsRegistry;

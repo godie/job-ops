@@ -1,3 +1,4 @@
+import { useIsSystemAdmin } from "@client/hooks/useIsSystemAdmin";
 import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { WebhookValues } from "@client/pages/settings/types";
@@ -28,39 +29,46 @@ export const WebhooksSection: React.FC<WebhooksSectionProps> = ({
     register,
     formState: { errors },
   } = useFormContext<UpdateSettingsInput>();
+  // The webhook destinations are administrator-reserved (the server posts to them),
+  // so a workspace member is not offered them; the shared secret stays theirs.
+  const isSystemAdmin = useIsSystemAdmin();
 
   return (
     <SettingsSectionFrame mode={layoutMode} title="Webhooks" value="webhooks">
       <div className="space-y-6">
-        <div className="space-y-4">
-          <div className="text-sm font-medium">Pipeline Status</div>
-          <SettingsInput
-            label="Webhook URL"
-            inputProps={register("pipelineWebhookUrl")}
-            placeholder={pipelineWebhook.default || "https://..."}
-            disabled={isLoading || isSaving}
-            error={errors.pipelineWebhookUrl?.message as string | undefined}
-            helper={`When set, the server sends a POST on pipeline completion/failure. Default: ${pipelineWebhook.default || "—"}.`}
-            current={pipelineWebhook.effective || "—"}
-          />
-        </div>
+        {isSystemAdmin ? (
+          <div className="space-y-4">
+            <div className="text-sm font-medium">Pipeline Status</div>
+            <SettingsInput
+              label="Webhook URL"
+              inputProps={register("pipelineWebhookUrl")}
+              placeholder={pipelineWebhook.default || "https://..."}
+              disabled={isLoading || isSaving}
+              error={errors.pipelineWebhookUrl?.message as string | undefined}
+              helper={`When set, the server sends a POST on pipeline completion/failure. Default: ${pipelineWebhook.default || "—"}.`}
+              current={pipelineWebhook.effective || "—"}
+            />
+          </div>
+        ) : null}
 
         <Separator />
 
         <div className="space-y-4">
           <div className="text-sm font-medium">Job Completion</div>
           <div className="space-y-4">
-            <SettingsInput
-              label="Webhook URL"
-              inputProps={register("jobCompleteWebhookUrl")}
-              placeholder={jobCompleteWebhook.default || "https://..."}
-              disabled={isLoading || isSaving}
-              error={
-                errors.jobCompleteWebhookUrl?.message as string | undefined
-              }
-              helper={`When set, the server sends a POST when you mark a job as applied (includes the job description). Default: ${jobCompleteWebhook.default || "—"}.`}
-              current={jobCompleteWebhook.effective || "—"}
-            />
+            {isSystemAdmin ? (
+              <SettingsInput
+                label="Webhook URL"
+                inputProps={register("jobCompleteWebhookUrl")}
+                placeholder={jobCompleteWebhook.default || "https://..."}
+                disabled={isLoading || isSaving}
+                error={
+                  errors.jobCompleteWebhookUrl?.message as string | undefined
+                }
+                helper={`When set, the server sends a POST when you mark a job as applied (includes the job description). Default: ${jobCompleteWebhook.default || "—"}.`}
+                current={jobCompleteWebhook.effective || "—"}
+              />
+            ) : null}
 
             <SettingsInput
               label="Webhook Secret"

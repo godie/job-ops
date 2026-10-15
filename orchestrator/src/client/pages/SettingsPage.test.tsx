@@ -135,6 +135,21 @@ const renderPage = () => {
 const getSaveButton = () =>
   screen.getByRole("button", { name: /save changes/i });
 
+// The base URLs are administrator-reserved, so the tests that exercise them
+// render the page as a system administrator.
+const asSystemAdmin = () =>
+  vi.mocked(api.getCurrentAuthUser).mockResolvedValue({
+    id: "user-1",
+    username: "test",
+    displayName: null,
+    isSystemAdmin: true,
+    isDisabled: false,
+    workspaceId: "tenant_default",
+    workspaceName: "JobOps",
+    createdAt: "2026-04-27T00:00:00.000Z",
+    updatedAt: "2026-04-27T00:00:00.000Z",
+  });
+
 const openNavGroup = async (name: RegExp) => {
   const groupButton = await screen.findByRole("button", { name });
   fireEvent.click(groupButton);
@@ -547,6 +562,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows the selected purpose provider base URL as current", async () => {
+    asSystemAdmin();
     const localSettings = createAppSettings({
       llmProvider: {
         value: "ollama",
@@ -843,6 +859,7 @@ describe("SettingsPage", () => {
   });
 
   it("saves a shared RxResume URL from the Reactive Resume section", async () => {
+    asSystemAdmin();
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     vi.mocked(api.updateSettings).mockResolvedValue({
       ...baseSettings,
@@ -1017,6 +1034,7 @@ describe("SettingsPage", () => {
   });
 
   it("clears the previous RxResume warning when the key or URL changes", async () => {
+    asSystemAdmin();
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     vi.mocked(api.validateRxresume).mockResolvedValue({
       valid: false,

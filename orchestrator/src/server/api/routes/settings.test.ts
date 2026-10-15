@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { ADMIN_ONLY_SETTING_KEYS } from "@shared/settings-registry";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@server/services/rxresume", () => ({
@@ -525,7 +526,7 @@ describe.sequential("Settings API routes", () => {
     expect(getBody.data.missingSalaryPenalty.value).toBe(20);
   });
 
-  it("allows non-admin users to update search settings without widening access", async () => {
+  it("lets a non-admin update workspace settings but not administrator-reserved ones", async () => {
     await stopServer({ server, closeDb, tempDir });
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: AUTH_ENV,
@@ -568,21 +569,161 @@ describe.sequential("Settings API routes", () => {
     ]);
     expect(searchSettingsBody.data.searchCities.value).toBe("London");
 
-    const protectedSettingsRes = await fetch(`${baseUrl}/api/settings`, {
+    const workspaceSettingsRes = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${regularToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ rxresumeApiKey: "member-owned-key" }),
+    });
+    const workspaceSettingsBody = await workspaceSettingsRes.json();
+
+    expect(workspaceSettingsRes.status).toBe(200);
+    expect(workspaceSettingsBody.ok).toBe(true);
+    expect(workspaceSettingsBody.data.rxresumeApiKeyHint).toBe("memb");
+
+    const reservedSettingsRes = await fetch(`${baseUrl}/api/settings`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${regularToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        searchTerms: ["backend engineer"],
-        llmApiKey: "attacker-controlled-value",
+        searchTerms: ["should not persist"],
+        backupEnabled: true,
       }),
     });
-    const protectedSettingsBody = await protectedSettingsRes.json();
+    const reservedSettingsBody = await reservedSettingsRes.json();
 
-    expect(protectedSettingsRes.status).toBe(403);
-    expect(protectedSettingsBody.error.code).toBe("FORBIDDEN");
+    expect(reservedSettingsRes.status).toBe(403);
+    expect(reservedSettingsBody.error.code).toBe("FORBIDDEN");
+
+    const afterRes = await fetch(`${baseUrl}/api/settings`, {
+      headers: { Authorization: `Bearer ${regularToken}` },
+    });
+    const afterBody = await afterRes.json();
+    expect(afterBody.data.searchTerms.value).toEqual(["backend engineer"]);
+    expect(afterBody.data.backupEnabled.value).toBe(false);
+  });
+
+  it("refuses every administrator-reserved setting to a non-admin", async () => {
+    await stopServer({ server, closeDb, tempDir });
+    ({ server, baseUrl, closeDb, tempDir } = await startServer({
+      env: AUTH_ENV,
+    }));
+
+    const adminToken = await login(baseUrl, "admin", "secret");
+    const createUserRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username: "regular", password: "regular-secret" }),
+    });
+    expect(createUserRes.status).toBe(201);
+
+    const regularToken = await login(baseUrl, "regular", "regular-secret");
+    const reservedValues: Record<string, unknown> = {
+      backupEnabled: true,
+      backupHour: 3,
+      backupMaxCount: 2,
+      rxresumeUrl: "https://rxresu.me",
+      llmBaseUrl: "https://example.test",
+      pipelineWebhookUrl: "https://example.test/hook",
+      jobCompleteWebhookUrl: "https://example.test/hook",
+    };
+
+    for (const [key, value] of Object.entries(reservedValues)) {
+      const memberRes = await fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${regularToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ [key]: value }),
+      });
+      expect(memberRes.status, `member write of ${key}`).toBe(403);
+      const memberBody = await memberRes.json();
+      expect(memberBody.error.code).toBe("FORBIDDEN");
+    }
+
+    for (const [key, value] of Object.entries(reservedValues)) {
+      const adminRes = await fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ [key]: value }),
+      });
+      expect(adminRes.status, `admin write of ${key}`).toBe(200);
+    }
+  });
+
+  it("keeps a member's workspace settings inside their own workspace", async () => {
+    await stopServer({ server, closeDb, tempDir });
+    ({ server, baseUrl, closeDb, tempDir } = await startServer({
+      env: AUTH_ENV,
+    }));
+
+    const adminToken = await login(baseUrl, "admin", "secret");
+    for (const username of ["first", "second"]) {
+      const res = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password: `${username}-secret` }),
+      });
+      expect(res.status).toBe(201);
+    }
+
+    const firstToken = await login(baseUrl, "first", "first-secret");
+    const secondToken = await login(baseUrl, "second", "second-secret");
+
+    for (const [token, secret] of [
+      [firstToken, "aaaa-member-secret"],
+      [secondToken, "bbbb-member-secret"],
+    ] as const) {
+      const res = await fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rxresumeApiKey: secret }),
+      });
+      expect(res.status).toBe(200);
+    }
+
+    const firstSettings = await (
+      await fetch(`${baseUrl}/api/settings`, {
+        headers: { Authorization: `Bearer ${firstToken}` },
+      })
+    ).json();
+    const secondSettings = await (
+      await fetch(`${baseUrl}/api/settings`, {
+        headers: { Authorization: `Bearer ${secondToken}` },
+      })
+    ).json();
+
+    expect(firstSettings.data.rxresumeApiKeyHint).toBe("aaaa");
+    expect(secondSettings.data.rxresumeApiKeyHint).toBe("bbbb");
+  });
+
+  it("reserves exactly the backup and server-URL settings for administrators", () => {
+    expect([...ADMIN_ONLY_SETTING_KEYS].sort()).toEqual([
+      "backupEnabled",
+      "backupHour",
+      "backupMaxCount",
+      "jobCompleteWebhookUrl",
+      "llmBaseUrl",
+      "pipelineWebhookUrl",
+      "rxresumeUrl",
+    ]);
   });
 
   it("preserves upstream 404 from Reactive Resume project lookup", async () => {

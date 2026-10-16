@@ -315,24 +315,61 @@ managing per-provider keys and per-provider quotas.
 
 ### How to use it
 
-1. Run an OpenCode 2.x server locally (`opencode serve`). JobOps discovers its URL and
-   password from the OpenCode service registration (`service.json`), or from
-   `OPENCODE_URL` and `OPENCODE_PASSWORD`.
+1. Run an OpenCode 2.x server locally (`opencode serve`). JobOps resolves its URL and
+   password **per field**, in this order:
+   1. the value saved under **Settings → Model → OpenCode server** (operator-level),
+   2. the OpenCode service registration file (`service.json`),
+   3. the matching environment variable (`OPENCODE_URL` / `OPENCODE_PASSWORD`).
+
+   A value you save wins, so you can re-point JobOps without editing `service.json`.
 2. Go to **Settings → Model**, set **Provider** to **OpenCode**.
 3. Pick a model in `providerID/modelID` form (for example `opencode/space-bunny-free`).
    The default is a free model.
 4. Save. JobOps calls only the server's session-less generation endpoint; it never runs
    the server's tools.
 
+### OpenCode server endpoint
+
+The endpoint is **operator-level**: it lives in one global row per key (`opencodeUrl` and
+`opencodePassword`), and every workspace resolves the same values, so no workspace can set
+or override it. It is available in local mode only — in hosted mode the platform owns LLM
+configuration, so the section is not offered and writes are refused.
+
+- **Administrator-only.** A system administrator sets it; a non-admin write is refused with
+  `403 FORBIDDEN`, and a non-admin response carries neither the server URL, nor the
+  "password resolves" indicator, nor any part of the password.
+- **The URL field edits only the stored override.** The effective URL and where it comes
+  from (set here / the service registration / the environment) are shown as read-only
+  context, so saving only the password never turns an inherited URL into an override.
+- **The password is write-only.** No response carries the password or any character of it,
+  for any caller; the section shows only whether one resolves.
+- **Leave the password field untouched to keep it.** An untouched field is omitted from the
+  save; removing the stored password is an explicit action (**Clear password**), and the
+  password then falls back to the service registration file, and to the environment only
+  when the file does not provide one.
+- **Clearing the URL** falls back the same way: registration file first, then environment.
+- **Transport.** Remote hosts must use HTTPS. Plaintext `http://` is allowed only for
+  loopback and the Docker host aliases (`host.docker.internal`, `gateway.docker.internal`).
+  The check validates transport, not the host, so an HTTPS endpoint on any host is accepted.
+  A URL carrying embedded credentials is rejected.
+- **Test connection** exercises the **saved** configuration (not unsaved edits in the form).
+
+If you previously relied on the stored LLM key (`llmApiKey`) as the OpenCode password, that
+fallback is **removed**: set the password in this section, or via `service.json` /
+`OPENCODE_PASSWORD`. Until you do, OpenCode flows fail with a configuration error.
+
 ### Common problems
 
 - **The run pauses with a configuration error:** the OpenCode server URL or password
-  could not be resolved. Check that the server is running and that `service.json` (or
-  `OPENCODE_URL`/`OPENCODE_PASSWORD`) is set.
-- **Credentials rejected (401):** the password does not match the running server. Fix
-  `service.json` or `OPENCODE_PASSWORD`.
+  could not be resolved. Check the section above, the server registration, and
+  `OPENCODE_URL`/`OPENCODE_PASSWORD`. The flow fails if **either** value is missing.
+- **Credentials rejected (401):** the resolved password does not match the running server.
 - **A non-loopback server is refused:** JobOps refuses to send Basic credentials over
   plaintext to a remote host. Use an HTTPS endpoint or a tunnel.
+- **A URL with embedded credentials is refused:** remove the `user:pass@` part; the value
+  can appear in a settings response, so it must not carry a credential of its own.
+- **A saved URL keeps winning after the server moved:** a stored value beats the service
+  registration file. Clear the field to fall back to `service.json`.
 - **A model returns 503 / "free tier can only be used from within OpenCode":** OpenCode's
   free-tier models (`opencode/*-free`) only work inside the OpenCode app, not over the
   API. Pick a subscription/provider model (for example `opencode-go/grok-4.7`).

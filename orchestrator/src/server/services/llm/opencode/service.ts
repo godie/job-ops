@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import * as settingsRepo from "@server/repositories/settings";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { openCodeStrategy } from "../providers/opencode";
 import type {
@@ -66,8 +67,10 @@ export function isTrustedLocalHost(hostname: string): boolean {
 }
 
 /**
- * The server is expected on loopback. A remote server must use TLS so Basic
- * credentials never cross a network in plaintext.
+ * The server is expected on loopback. A remote server must use TLS so Basic credentials never
+ * cross a network in plaintext, and the URL must not carry credentials of its own because the
+ * value can be serialized into a settings response. This validates transport and credentials,
+ * not the host: an HTTPS endpoint on any host is accepted.
  */
 export function assertSecureOpenCodeTransport(baseUrl: string): void {
   let url: URL;
@@ -78,6 +81,11 @@ export function assertSecureOpenCodeTransport(baseUrl: string): void {
       "OpenCode server URL is not a valid URL.",
     );
   }
+  if (url.username || url.password) {
+    throw new OpenCodeConfigurationError(
+      "OpenCode server URL carries embedded credentials; refusing to use it.",
+    );
+  }
   if (url.protocol === "https:") return;
   if (url.protocol === "http:" && isTrustedLocalHost(url.hostname)) return;
   throw new OpenCodeConfigurationError(
@@ -85,37 +93,105 @@ export function assertSecureOpenCodeTransport(baseUrl: string): void {
   );
 }
 
+/** First non-empty candidate, so each field resolves independently of the other. */
+function firstResolved(
+  ...candidates: Array<string | null | undefined>
+): string | null {
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 /**
- * Resolve the OpenCode base URL and password per call (never cached): the
- * service registration file first, then an operator-level base URL plus a
- * stored or environment password. The endpoint is operator-level, not a tenant
- * setting, so a tenant cannot redirect the call to an arbitrary host.
+ * Resolve the OpenCode base URL and password per call (never cached), **per field**, in the
+ * order: the operator-level setting (one global row per key, shared by every workspace), then
+ * the service registration file, then the matching environment variable. A value the operator
+ * saved therefore re-points an endpoint that a running `opencode serve --service` already
+ * published. A field that resolves to a value failing validation fails closed rather than
+ * falling through to a lower source, and the value is never included in the error.
  */
-export async function resolveOpenCodeEndpoint(options?: {
-  storedPassword?: string | null;
-}): Promise<OpenCodeEndpoint> {
+export async function resolveOpenCodeEndpoint(): Promise<OpenCodeEndpoint> {
   const registration = await readServiceRegistration();
-  const baseUrl =
-    registration?.url || getOriginalEnvValue("OPENCODE_URL")?.trim() || "";
-  const password =
-    registration?.password ||
-    getOriginalEnvValue("OPENCODE_PASSWORD") ||
-    options?.storedPassword?.trim() ||
-    "";
+  const storedUrl = await settingsRepo.getOperatorSetting("opencodeUrl");
+  const storedPassword =
+    await settingsRepo.getOperatorSetting("opencodePassword");
+
+  const baseUrl = firstResolved(
+    storedUrl,
+    registration?.url,
+    getOriginalEnvValue("OPENCODE_URL"),
+  );
+  const password = firstResolved(
+    storedPassword,
+    registration?.password,
+    getOriginalEnvValue("OPENCODE_PASSWORD"),
+  );
 
   if (!baseUrl) {
     throw new OpenCodeConfigurationError(
-      "OpenCode server is not configured: no service.json and OPENCODE_URL is unset.",
+      "OpenCode server is not configured: no stored URL, no service.json URL and OPENCODE_URL is unset.",
     );
   }
   if (!password) {
     throw new OpenCodeConfigurationError(
-      "OpenCode credentials are not configured: no service.json and OPENCODE_PASSWORD is unset.",
+      "OpenCode credentials are not configured: no stored password, no service.json password and OPENCODE_PASSWORD is unset.",
     );
   }
 
   assertSecureOpenCodeTransport(baseUrl);
   return { baseUrl, password };
+}
+
+export type OpenCodeUrlSource =
+  | "setting"
+  | "service-registration"
+  | "environment";
+
+/**
+ * The URL a request would use and where it came from, or null when no source provides one.
+ * Never throws: the caller decides how to validate the result.
+ */
+export async function resolveEffectiveOpenCodeUrlWithSource(
+  override?: string | null,
+): Promise<{ url: string; source: OpenCodeUrlSource } | null> {
+  const registration = await readServiceRegistration();
+  const candidates: Array<[string | null | undefined, OpenCodeUrlSource]> = [
+    [override, "setting"],
+    [await settingsRepo.getOperatorSetting("opencodeUrl"), "setting"],
+    [registration?.url, "service-registration"],
+    [getOriginalEnvValue("OPENCODE_URL"), "environment"],
+  ];
+
+  for (const [candidate, source] of candidates) {
+    const value = candidate?.trim();
+    if (value) return { url: value, source };
+  }
+  return null;
+}
+
+/**
+ * The URL a request would use, or null when no source provides one. Never throws: the caller
+ * decides how to validate the result.
+ */
+export async function resolveEffectiveOpenCodeUrl(
+  override?: string | null,
+): Promise<string | null> {
+  const resolved = await resolveEffectiveOpenCodeUrlWithSource(override);
+  return resolved?.url ?? null;
+}
+
+/** Whether an OpenCode password resolves from any source. Never returns or reveals it. */
+export async function openCodePasswordResolves(): Promise<boolean> {
+  const registration = await readServiceRegistration();
+  return Boolean(
+    firstResolved(
+      await settingsRepo.getOperatorSetting("opencodePassword"),
+      registration?.password,
+      getOriginalEnvValue("OPENCODE_PASSWORD"),
+    ),
+  );
 }
 
 function openCodeHeaders(password: string): Record<string, string> {
@@ -130,10 +206,8 @@ function errorMessage(error: unknown): string {
 }
 
 export class OpenCodeClient {
-  constructor(private readonly storedPassword: string | null = null) {}
-
   private resolveEndpoint(): Promise<OpenCodeEndpoint> {
-    return resolveOpenCodeEndpoint({ storedPassword: this.storedPassword });
+    return resolveOpenCodeEndpoint();
   }
 
   private async generate<T>(

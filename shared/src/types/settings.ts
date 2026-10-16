@@ -332,6 +332,13 @@ export interface AppSettings {
   apifyTokenHint: string | null;
   webhookSecretHint: string | null;
 
+  // Operator-level OpenCode endpoint. Administrator-only: absent from a non-admin's response
+  // and from any response in hosted mode. Never a character of the password.
+  opencodeUrl?: string | null;
+  opencodeUrlOverride?: string | null;
+  opencodeUrlSource?: "setting" | "service-registration" | "environment" | null;
+  opencodePasswordResolved?: boolean;
+
   // Computed:
   profileProjects: ResumeProjectCatalogItem[];
 }

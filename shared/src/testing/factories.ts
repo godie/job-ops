@@ -151,6 +151,7 @@ export const createAppSettings = (
   pipelineWebhookUrl: { value: "", default: "", override: null },
   jobCompleteWebhookUrl: { value: "", default: "", override: null },
   profileProjects: [],
+  opencodePasswordResolved: false,
   resumeProjects: {
     value: { maxProjects: 3, lockedProjectIds: [], aiSelectableProjectIds: [] },
     default: {

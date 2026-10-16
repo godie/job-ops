@@ -336,6 +336,16 @@ export const resumeProjectsSchema = z.object({
   aiSelectableProjectIds: z.array(z.string().trim().min(1)).max(200),
 });
 
+/** A URL that carries no embedded credentials, since the value can be serialized in a response. */
+function isUrlWithoutEmbeddedCredentials(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.username === "" && url.password === "";
+  } catch {
+    return false;
+  }
+}
+
 export const settingsRegistry = {
   // --- Typed Settings ---
   model: {
@@ -380,6 +390,24 @@ export const settingsRegistry = {
     parse: parseNonEmptyStringOrNull,
     serialize: (value: string | null | undefined): string | null =>
       value ?? null,
+  },
+  opencodeUrl: {
+    kind: "string" as const,
+    adminOnly: true,
+    envKey: "OPENCODE_URL",
+    schema: z.preprocess(
+      (v) => (v === "" ? null : v),
+      z
+        .string()
+        .trim()
+        .url()
+        .max(2000)
+        .refine(
+          isUrlWithoutEmbeddedCredentials,
+          "Must be an absolute URL without embedded credentials",
+        )
+        .nullable(),
+    ),
   },
   llmPurposeOverrides: {
     kind: "typed" as const,
@@ -980,6 +1008,12 @@ export const settingsRegistry = {
   llmApiKey: {
     kind: "secret" as const,
     envKey: "LLM_API_KEY",
+    schema: z.string().trim().max(2000),
+  },
+  opencodePassword: {
+    kind: "secret" as const,
+    adminOnly: true,
+    envKey: "OPENCODE_PASSWORD",
     schema: z.string().trim().max(2000),
   },
   llmPurposeApiKeys: {

@@ -186,3 +186,21 @@ for (const [key, def] of Object.entries(settingsRegistry)) {
     });
   };
 }
+
+// The OpenCode endpoint is operator-level: one global row per key, so the write must not go
+// through the caller's workspace scope. An omitted field never reaches this handler, which is
+// what keeps the other field untouched; clearing (`null` or an empty string) removes the
+// override so the field falls through to the service registration file and then the environment.
+for (const key of ["opencodeUrl", "opencodePassword"] as const) {
+  settingsUpdateRegistry[key] = ({ value }) => {
+    const serialized = typeof value === "string" ? value.trim() || null : null;
+    return result({
+      actions: [
+        {
+          settingKey: key,
+          persist: () => settingsRepo.setOperatorSetting(key, serialized),
+        },
+      ],
+    });
+  };
+}

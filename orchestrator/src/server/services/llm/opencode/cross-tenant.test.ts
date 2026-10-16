@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@server/repositories/settings", () => ({
   getAllSettings: vi.fn(),
+  getOperatorSetting: vi.fn(),
   getSetting: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("@server/services/account-entitlements", () => ({
   FREE_HOSTED_MONTHLY_LIMITS: {},
 }));
 
+import { runWithRequestContext } from "@infra/request-context";
 import * as settingsRepo from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
@@ -108,5 +110,34 @@ describe("opencode tenant scoping", () => {
 
     const scoring = await resolveLlmRuntimeSettings("scoring");
     expect(scoring.baseUrl).toBeNull();
+  });
+
+  it("resolves the same operator-level endpoint for every workspace", async () => {
+    vi.mocked(settingsRepo.getOperatorSetting).mockImplementation(
+      async (key: string) =>
+        key === "opencodeUrl" ? "http://127.0.0.1:4096" : "operator-password",
+    );
+
+    const { resolveOpenCodeEndpoint } = await import("./service");
+    const forWorkspace = (tenantId: string, userId: string) =>
+      runWithRequestContext({ requestId: "test", tenantId, userId }, () =>
+        resolveOpenCodeEndpoint(),
+      );
+
+    const first = await forWorkspace("tenant-a", "admin-a");
+    const second = await forWorkspace("tenant-b", "admin-b");
+    expect(first).toEqual({
+      baseUrl: "http://127.0.0.1:4096",
+      password: "operator-password",
+    });
+    expect(second).toEqual(first);
+
+    // A workspace storing its own value never changes the resolved endpoint: the keys are
+    // operator-level, so a member cannot write them into their own scope either.
+    vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+      opencodeUrl: "http://tenant-should-not-win.internal",
+      opencodePassword: "tenant-password",
+    });
+    expect(await forWorkspace("tenant-b", "admin-b")).toEqual(first);
   });
 });

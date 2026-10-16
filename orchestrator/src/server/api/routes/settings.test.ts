@@ -1,5 +1,9 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import type { Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ADMIN_ONLY_SETTING_KEYS } from "@shared/settings-registry";
+import { updateSettingsSchema } from "@shared/settings-schema.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@server/services/rxresume", () => ({
@@ -721,9 +725,245 @@ describe.sequential("Settings API routes", () => {
       "backupMaxCount",
       "jobCompleteWebhookUrl",
       "llmBaseUrl",
+      "opencodePassword",
+      "opencodeUrl",
       "pipelineWebhookUrl",
       "rxresumeUrl",
     ]);
+  });
+
+  it("rejects an OpenCode URL carrying embedded credentials", () => {
+    expect(
+      updateSettingsSchema.safeParse({
+        opencodeUrl: "https://user:pass@opencode.example.com",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateSettingsSchema.safeParse({
+        opencodeUrl: "https://opencode.example.com",
+      }).success,
+    ).toBe(true);
+  });
+
+  describe("OpenCode endpoint settings", () => {
+    let stateDir: string;
+
+    beforeEach(async () => {
+      stateDir = await mkdtemp(join(tmpdir(), "job-ops-opencode-state-"));
+      // Never read the machine's real OpenCode service registration.
+      process.env.XDG_STATE_HOME = stateDir;
+    });
+
+    afterEach(async () => {
+      delete process.env.XDG_STATE_HOME;
+      delete process.env.OPENCODE_URL;
+      delete process.env.OPENCODE_PASSWORD;
+      await rm(stateDir, { recursive: true, force: true });
+    });
+
+    const writeServiceJson = async (value: unknown) => {
+      await mkdir(join(stateDir, "opencode"), { recursive: true });
+      await writeFile(
+        join(stateDir, "opencode", "service.json"),
+        JSON.stringify(value),
+      );
+    };
+
+    const restartServer = async (env: Record<string, string> = AUTH_ENV) => {
+      await stopServer({ server, closeDb, tempDir });
+      ({ server, baseUrl, closeDb, tempDir } = await startServer({
+        // The server replaces process.env, so the state dir must travel with it.
+        env: { ...env, XDG_STATE_HOME: stateDir },
+      }));
+    };
+
+    const createMember = async (adminToken: string) => {
+      const created = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: "regular",
+          password: "regular-secret",
+        }),
+      });
+      expect(created.status).toBe(201);
+      return login(baseUrl, "regular", "regular-secret");
+    };
+
+    const patchSettings = (token: string, body: unknown) =>
+      fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+    const readSettings = async (token: string) =>
+      (
+        await fetch(`${baseUrl}/api/settings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ).json();
+
+    it("lets an admin save the endpoint and refuses a non-admin", async () => {
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+      const memberToken = await createMember(adminToken);
+
+      const saved = await patchSettings(adminToken, {
+        opencodeUrl: "http://127.0.0.1:4096",
+        opencodePassword: "admin-owned-pw",
+      });
+      expect(saved.status).toBe(200);
+      const savedBody = await saved.json();
+      expect(savedBody.data.opencodeUrl).toBe("http://127.0.0.1:4096");
+      expect(savedBody.data.opencodePasswordResolved).toBe(true);
+      expect(JSON.stringify(savedBody)).not.toContain("admin-owned-pw");
+
+      const refused = await patchSettings(memberToken, {
+        opencodePassword: "member-pw",
+      });
+      expect(refused.status).toBe(403);
+      expect((await refused.json()).error.code).toBe("FORBIDDEN");
+    });
+
+    it("refuses both keys in hosted mode", async () => {
+      await restartServer({
+        ...AUTH_ENV,
+        JOBOPS_APP_MODE: "hosted",
+        JOBOPS_HOSTED_TENANT_ID: "tenant_default",
+      });
+      const adminToken = await login(baseUrl, "admin", "secret");
+
+      const refused = await patchSettings(adminToken, {
+        opencodeUrl: "http://127.0.0.1:4096",
+      });
+      expect(refused.status).toBe(403);
+
+      const body = await readSettings(adminToken);
+      expect(body.data.opencodeUrl).toBeUndefined();
+      expect(body.data.opencodePasswordResolved).toBeUndefined();
+    });
+
+    it("rejects a malformed, credential-bearing or remote plaintext URL", async () => {
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+
+      expect(
+        (await patchSettings(adminToken, { opencodeUrl: "not-a-url" })).status,
+      ).toBe(400);
+      const credentialUrl = "https://user:pw@remote.example.com";
+      const credentialRes = await patchSettings(adminToken, {
+        opencodeUrl: credentialUrl,
+      });
+      expect(credentialRes.status).toBe(400);
+      expect(JSON.stringify(await credentialRes.json())).not.toContain(
+        credentialUrl,
+      );
+      expect(
+        (
+          await patchSettings(adminToken, {
+            opencodeUrl: "http://remote.example.com",
+          })
+        ).status,
+      ).toBe(422);
+    });
+
+    it("refuses a password-only update when the effective URL is an inherited plaintext remote", async () => {
+      await writeServiceJson({
+        url: "http://remote.example.com",
+        password: "file-pw",
+      });
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+
+      expect(
+        (await patchSettings(adminToken, { opencodePassword: "pw" })).status,
+      ).toBe(422);
+    });
+
+    it("accepts both save orders and a password-only save with no URL at all", async () => {
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+
+      // Password first, then URL.
+      expect(
+        (await patchSettings(adminToken, { opencodePassword: "pw" })).status,
+      ).toBe(200);
+      expect(
+        (
+          await patchSettings(adminToken, {
+            opencodeUrl: "http://127.0.0.1:4096",
+          })
+        ).status,
+      ).toBe(200);
+
+      // URL first, then password, against the effective URL.
+      expect(
+        (
+          await patchSettings(adminToken, {
+            opencodeUrl: "http://127.0.0.1:4097",
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (await patchSettings(adminToken, { opencodePassword: "pw2" })).status,
+      ).toBe(200);
+    });
+
+    it("reports the indicator to an admin, hides it from a member, and never a character", async () => {
+      await writeServiceJson({
+        url: "http://127.0.0.1:5123",
+        password: "file-password",
+      });
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+      const memberToken = await createMember(adminToken);
+
+      const adminBody = await readSettings(adminToken);
+      // The password resolves from the registration file, so the indicator is true.
+      expect(adminBody.data.opencodePasswordResolved).toBe(true);
+      // The effective URL is context; the input edits only the stored override.
+      expect(adminBody.data.opencodeUrl).toBe("http://127.0.0.1:5123");
+      expect(adminBody.data.opencodeUrlSource).toBe("service-registration");
+      expect(adminBody.data.opencodeUrlOverride).toBeNull();
+      const adminJson = JSON.stringify(adminBody);
+      expect(adminJson).not.toContain("file-password");
+      expect(adminJson).not.toContain("opencodePasswordHint");
+
+      const memberBody = await readSettings(memberToken);
+      expect(memberBody.data.opencodePasswordResolved).toBeUndefined();
+      expect(memberBody.data.opencodeUrl).toBeUndefined();
+    });
+
+    it("keeps the stored password when only the URL is sent, and clears it on the clear value", async () => {
+      await restartServer();
+      const adminToken = await login(baseUrl, "admin", "secret");
+
+      await patchSettings(adminToken, {
+        opencodeUrl: "http://127.0.0.1:4096",
+        opencodePassword: "pw",
+      });
+
+      // Editing only the URL omits the password, so the stored one survives.
+      await patchSettings(adminToken, {
+        opencodeUrl: "http://127.0.0.1:4097",
+      });
+      expect(
+        (await readSettings(adminToken)).data.opencodePasswordResolved,
+      ).toBe(true);
+
+      // The explicit clear value removes the override.
+      await patchSettings(adminToken, { opencodePassword: null });
+      expect(
+        (await readSettings(adminToken)).data.opencodePasswordResolved,
+      ).toBe(false);
+    });
   });
 
   it("preserves upstream 404 from Reactive Resume project lookup", async () => {

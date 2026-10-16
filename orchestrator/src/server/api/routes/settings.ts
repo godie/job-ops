@@ -5,6 +5,7 @@ import {
   serviceUnavailable,
   statusToCode,
   unauthorized,
+  unprocessableEntity,
   upstreamError,
 } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
@@ -12,7 +13,7 @@ import { logger } from "@infra/logger";
 import { getRequestId, isSystemAdmin } from "@infra/request-context";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
-import { getSetting } from "@server/repositories/settings";
+import { getOperatorSetting, getSetting } from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
 import { setBackupSettings } from "@server/services/backup/index";
@@ -26,6 +27,13 @@ import {
 } from "@server/services/llm/codex/login";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
+import {
+  assertSecureOpenCodeTransport,
+  OpenCodeConfigurationError,
+  openCodePasswordResolves,
+  resolveEffectiveOpenCodeUrl,
+  resolveEffectiveOpenCodeUrlWithSource,
+} from "@server/services/llm/opencode/service";
 import { LlmService } from "@server/services/llm/service";
 import { clearProfileCache } from "@server/services/profile";
 import {
@@ -49,7 +57,11 @@ import {
   type UpdateSettingsInput,
   updateSettingsSchema,
 } from "@shared/settings-schema";
-import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
+import {
+  type AppSettings,
+  LLM_PURPOSE_VALUES,
+  type LlmPurpose,
+} from "@shared/types";
 import { type Request, type Response, Router } from "express";
 
 export const settingsRouter = Router();
@@ -95,6 +107,90 @@ function requireSettingsWriteAccess(
 
   fail(res, forbidden("System admin access is required"));
   return false;
+}
+
+const OPENCODE_ENDPOINT_KEYS: Array<keyof UpdateSettingsInput> = [
+  "opencodeUrl",
+  "opencodePassword",
+];
+
+function touchesOpenCodeEndpoint(input: UpdateSettingsInput): boolean {
+  return OPENCODE_ENDPOINT_KEYS.some((key) => hasInputKey(input, key));
+}
+
+/**
+ * The OpenCode endpoint is unavailable in hosted mode, where the platform owns LLM
+ * configuration; the administrator-only rule is enforced by the shared classification.
+ */
+function requireOpenCodeEndpointWriteAccess(
+  res: Response,
+  input: UpdateSettingsInput,
+): boolean {
+  if (!touchesOpenCodeEndpoint(input)) return true;
+  if (getJobOpsAppConfig().appMode === "hosted") {
+    fail(
+      res,
+      forbidden("The OpenCode endpoint is not configurable in hosted mode"),
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Validate the URL a request will actually use: the payload value, else the stored one, else
+ * the service registration file, else the environment. When nothing resolves, a partial save
+ * (for example the password alone) is accepted and transport validation is deferred until a
+ * URL exists.
+ */
+async function assertEffectiveOpenCodeUrl(
+  res: Response,
+  input: UpdateSettingsInput,
+): Promise<boolean> {
+  if (!touchesOpenCodeEndpoint(input)) return true;
+
+  const override = hasInputKey(input, "opencodeUrl")
+    ? (input.opencodeUrl ?? null)
+    : undefined;
+  const effectiveUrl = await resolveEffectiveOpenCodeUrl(override);
+  if (!effectiveUrl) return true;
+
+  try {
+    assertSecureOpenCodeTransport(effectiveUrl);
+    return true;
+  } catch (error) {
+    if (error instanceof OpenCodeConfigurationError) {
+      fail(res, unprocessableEntity(error.message));
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
+ * The OpenCode endpoint and the "a password resolves" indicator are administrator-only, and
+ * hosted mode offers neither. The response never carries a character of the password.
+ */
+async function withOpenCodeEndpointVisibility(
+  data: AppSettings,
+): Promise<AppSettings> {
+  const visible = getJobOpsAppConfig().appMode !== "hosted" && isSystemAdmin();
+  if (visible) {
+    // The section shows the effective URL as read-only context and edits only the stored
+    // override, so a password-only save never creates a URL override.
+    const effective = await resolveEffectiveOpenCodeUrlWithSource();
+    data.opencodeUrl = effective?.url ?? null;
+    data.opencodeUrlSource = effective?.source ?? null;
+    data.opencodeUrlOverride =
+      (await getOperatorSetting("opencodeUrl")) ?? null;
+    data.opencodePasswordResolved = await openCodePasswordResolves();
+    return data;
+  }
+  delete data.opencodeUrl;
+  delete data.opencodeUrlOverride;
+  delete data.opencodeUrlSource;
+  delete data.opencodePasswordResolved;
+  return data;
 }
 
 function hasInputKey<K extends keyof UpdateSettingsInput>(
@@ -395,7 +491,7 @@ settingsRouter.get(
   "/",
   asyncRoute(async (_req: Request, res: Response) => {
     const data = await getEffectiveSettings();
-    ok(res, data);
+    ok(res, await withOpenCodeEndpointVisibility(data));
   }),
 );
 
@@ -415,6 +511,8 @@ settingsRouter.patch(
 
     const input = updateSettingsSchema.parse(req.body);
     if (!requireSettingsWriteAccess(res, input)) return;
+    if (!requireOpenCodeEndpointWriteAccess(res, input)) return;
+    if (!(await assertEffectiveOpenCodeUrl(res, input))) return;
     if (LLM_SETTING_KEYS.some((key) => hasInputKey(input, key))) {
       await assertLlmSettingsEditable();
       assertHostedLlmInputAllowed(input);
@@ -472,7 +570,7 @@ settingsRouter.patch(
         maxCount: data.backupMaxCount.value,
       });
     }
-    ok(res, data);
+    ok(res, await withOpenCodeEndpointVisibility(data));
 
     queueMicrotask(() => {
       void enqueueAutoPdfRegenerationForSettingsChanges({

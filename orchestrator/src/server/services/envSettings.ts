@@ -40,15 +40,29 @@ export async function getEnvSettingsData(
 
     if (def.kind === "secret") {
       const hintKey = `${key}Hint` as keyof AppSettings;
+      const provider =
+        normalizeEnvInput(
+          activeOverrides.llmProvider ?? getOriginalEnvValue("LLM_PROVIDER"),
+        ) ?? null;
+      // The OpenCode password is a server credential, not the generic LLM key, and no
+      // response may carry any character of it. Its configured state is reported
+      // separately, and only to a system administrator.
+      if (
+        key === "llmApiKey" &&
+        provider?.trim().toLowerCase() === "opencode"
+      ) {
+        // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
+        (values as any)[hintKey] = null;
+        continue;
+      }
+      // The OpenCode password is never hinted: no response carries any character of it, and
+      // its configured state is reported only to a system administrator.
+      if (key === "opencodePassword") continue;
       const effectiveSecret =
         key === "llmApiKey"
           ? resolveLlmApiKey({
               storedApiKey: override,
-              provider:
-                normalizeEnvInput(
-                  activeOverrides.llmProvider ??
-                    getOriginalEnvValue("LLM_PROVIDER"),
-                ) ?? null,
+              provider,
               allowEnvironmentCredentials:
                 options?.allowLlmEnvironmentCredentials,
             })

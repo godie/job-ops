@@ -97,7 +97,7 @@ export class LlmService {
     this.codexClient = new CodexClient();
     this.geminiCliClient = new GeminiCliClient();
     this.claudeCliClient = new ClaudeCliClient();
-    this.openCodeClient = new OpenCodeClient(this.apiKey);
+    this.openCodeClient = new OpenCodeClient();
   }
 
   async callJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {

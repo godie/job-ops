@@ -661,6 +661,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       llmApiKeyHint: settings?.llmApiKeyHint ?? null,
       llmPurposeOverrides: settings?.llmPurposeOverrides?.value ?? {},
       llmPurposeApiKeyHints: settings?.llmPurposeApiKeyHints ?? {},
+      opencodeUrl: settings?.opencodeUrl ?? null,
+      opencodeUrlOverride: settings?.opencodeUrlOverride ?? null,
+      opencodeUrlSource: settings?.opencodeUrlSource ?? null,
+      opencodePasswordResolved: settings?.opencodePasswordResolved ?? false,
     },
     pipelineWebhook: {
       effective: settings?.pipelineWebhookUrl?.value ?? "",
@@ -1260,6 +1264,15 @@ export const SettingsPage: React.FC = () => {
         ...llmPayload,
         pipelineWebhookUrl: normalizeString(data.pipelineWebhookUrl),
         jobCompleteWebhookUrl: normalizeString(data.jobCompleteWebhookUrl),
+        // The OpenCode endpoint is operator-level and administrator-only. An untouched field is
+        // not dirty, so it is omitted and keeps its stored value; the clear action sets an empty
+        // value, which normalizeString turns into an explicit clear.
+        ...(dirtyFields.opencodeUrl
+          ? { opencodeUrl: normalizeString(data.opencodeUrl) }
+          : {}),
+        ...(dirtyFields.opencodePassword
+          ? { opencodePassword: normalizeString(data.opencodePassword) }
+          : {}),
         resumeProjects: resumeProjectsOverride,
         pdfRenderer: nullIfSame(
           data.pdfRenderer,

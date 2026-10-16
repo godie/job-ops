@@ -27,6 +27,25 @@ vi.mock("@infra/logger", () => ({
   },
 }));
 
+// The operator-level store is a database read; these tests drive it directly.
+const { operatorSettingsMock } = vi.hoisted(() => ({
+  operatorSettingsMock: {
+    url: null as string | null,
+    password: null as string | null,
+  },
+}));
+
+vi.mock("@server/repositories/settings", () => ({
+  // Plain functions (not vi.fn) so `vi.restoreAllMocks()` cannot wipe them.
+  getOperatorSetting: async (key: string) =>
+    key === "opencodeUrl"
+      ? operatorSettingsMock.url
+      : operatorSettingsMock.password,
+  getAllSettings: async () => ({}),
+  getSetting: async () => null,
+  setSetting: async () => undefined,
+}));
+
 import {
   buildOpenCodeAuthHeader,
   flattenMessagesToPrompt,
@@ -180,6 +199,8 @@ describe("opencode endpoint discovery", () => {
   beforeEach(() => {
     delete process.env.OPENCODE_URL;
     delete process.env.OPENCODE_PASSWORD;
+    operatorSettingsMock.url = null;
+    operatorSettingsMock.password = null;
   });
 
   afterEach(() => {
@@ -188,7 +209,7 @@ describe("opencode endpoint discovery", () => {
     delete process.env.OPENCODE_PASSWORD;
   });
 
-  it("uses the service registration file when present", async () => {
+  it("uses the service registration file when nothing is stored", async () => {
     await writeServiceJson({
       url: "http://127.0.0.1:5123",
       password: "file-pw",
@@ -199,7 +220,28 @@ describe("opencode endpoint discovery", () => {
     });
   });
 
-  it("falls back to env base URL and password", async () => {
+  it("lets a stored value win over the registration file, per field", async () => {
+    await writeServiceJson({
+      url: "http://127.0.0.1:5123",
+      password: "file-pw",
+    });
+    operatorSettingsMock.url = "https://stored.example.com";
+    await expect(resolveOpenCodeEndpoint()).resolves.toEqual({
+      baseUrl: "https://stored.example.com",
+      password: "file-pw",
+    });
+  });
+
+  it("lets a stored value win over the environment, per field", async () => {
+    envSetup();
+    operatorSettingsMock.password = "stored-pw";
+    await expect(resolveOpenCodeEndpoint()).resolves.toEqual({
+      baseUrl: "http://127.0.0.1:4096",
+      password: "stored-pw",
+    });
+  });
+
+  it("uses the environment when nothing is stored and no registration exists", async () => {
     envSetup();
     await expect(resolveOpenCodeEndpoint()).resolves.toEqual({
       baseUrl: "http://127.0.0.1:4096",
@@ -207,21 +249,52 @@ describe("opencode endpoint discovery", () => {
     });
   });
 
-  it("prefers the env password over a stored (generic) LLM key", async () => {
-    envSetup();
-    await expect(
-      resolveOpenCodeEndpoint({ storedPassword: "stale-gemini-key" }),
-    ).resolves.toEqual({
-      baseUrl: "http://127.0.0.1:4096",
-      password: PASSWORD,
+  it("resolves one field independently when only it has a value", async () => {
+    await writeServiceJson({ url: "http://127.0.0.1:5123" });
+    operatorSettingsMock.password = "stored-pw";
+    await expect(resolveOpenCodeEndpoint()).resolves.toEqual({
+      baseUrl: "http://127.0.0.1:5123",
+      password: "stored-pw",
     });
   });
 
-  it("fails with a configuration error when nothing is configured", async () => {
+  it("fails when a partial registration has no other source for the missing field", async () => {
+    await writeServiceJson({ url: "http://127.0.0.1:5123" });
+    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not configured/i);
+  });
+
+  it("fails when the URL is missing while a password resolves", async () => {
+    operatorSettingsMock.password = "stored-pw";
+    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not configured/i);
+  });
+
+  it("fails when the password is missing while a URL resolves", async () => {
+    operatorSettingsMock.url = "http://127.0.0.1:4096";
+    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not configured/i);
+  });
+
+  it("does not treat a stored LLM key as the OpenCode password", async () => {
+    // Nothing stored, no env and no registration: the OpenCode flow has no password at all.
     await expect(resolveOpenCodeEndpoint()).rejects.toBeInstanceOf(
       OpenCodeConfigurationError,
     );
-    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not configured/i);
+  });
+
+  it("fails closed for an inherited insecure, credential-bearing or malformed URL", async () => {
+    envSetup();
+
+    process.env.OPENCODE_URL = "http://internal.example.com";
+    await expect(resolveOpenCodeEndpoint()).rejects.toBeInstanceOf(
+      OpenCodeConfigurationError,
+    );
+
+    process.env.OPENCODE_URL = "https://user:pass@internal.example.com";
+    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(
+      /embedded credentials/i,
+    );
+
+    process.env.OPENCODE_URL = "not-a-url";
+    await expect(resolveOpenCodeEndpoint()).rejects.toThrow(/not a valid URL/i);
   });
 
   it("rejects a non-local plaintext endpoint and accepts secure/loopback/docker-host ones", () => {
@@ -243,6 +316,9 @@ describe("opencode endpoint discovery", () => {
     expect(() =>
       assertSecureOpenCodeTransport("http://gateway.docker.internal:49374"),
     ).not.toThrow();
+    expect(() =>
+      assertSecureOpenCodeTransport("https://user:pass@internal.example.com"),
+    ).toThrow(/embedded credentials/i);
   });
 });
 
@@ -263,7 +339,7 @@ describe("opencode generation and error classification", () => {
       generateResponse(JSON.stringify({ value: "ok" })),
     );
 
-    const client = new OpenCodeClient(PASSWORD);
+    const client = new OpenCodeClient();
     await expect(
       client.callJson<string>({
         model: "opencode/space-bunny-free",
@@ -283,7 +359,7 @@ describe("opencode generation and error classification", () => {
       .mockResolvedValueOnce(generateResponse("not json"))
       .mockResolvedValueOnce(generateResponse(JSON.stringify({ value: "ok" })));
 
-    const client = new OpenCodeClient(PASSWORD);
+    const client = new OpenCodeClient();
     await expect(
       client.callJson<string>({
         model: "opencode/space-bunny-free",
@@ -305,7 +381,7 @@ describe("opencode generation and error classification", () => {
       Promise.resolve(generateResponse("still not json")),
     );
 
-    const client = new OpenCodeClient(PASSWORD);
+    const client = new OpenCodeClient();
     await expect(
       client.callJson<string>({
         model: "opencode/space-bunny-free",
@@ -367,7 +443,7 @@ describe("opencode generation and error classification", () => {
       generateResponse(JSON.stringify({ value: "ok" })),
     );
 
-    const client = new OpenCodeClient(PASSWORD);
+    const client = new OpenCodeClient();
     await client.callJson<string>({
       model: "opencode/space-bunny-free",
       messages: [{ role: "user", content: "hi" }],
@@ -408,7 +484,7 @@ describe("opencode model catalogue", () => {
       ),
     );
 
-    const models = await new OpenCodeClient(PASSWORD).listModels();
+    const models = await new OpenCodeClient().listModels();
     expect(models).toContain("opencode/space-bunny-free");
     expect(models).toContain("opencode-go/grok-4.7");
   });

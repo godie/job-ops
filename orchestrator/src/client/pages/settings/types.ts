@@ -19,6 +19,10 @@ export type ModelValues = EffectiveDefault<string> & {
   llmApiKeyHint: string | null;
   llmPurposeOverrides: LlmPurposeOverrides;
   llmPurposeApiKeyHints: LlmPurposeApiKeyHints;
+  opencodeUrl: string | null;
+  opencodeUrlOverride: string | null;
+  opencodeUrlSource: "setting" | "service-registration" | "environment" | null;
+  opencodePasswordResolved: boolean;
 };
 
 export type WebhookValues = EffectiveDefault<string>;

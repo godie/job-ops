@@ -1,4 +1,5 @@
 import { LlmModelConfiguration } from "@client/components/llmmodelconfiguration/LlmModelConfiguration";
+import { OpenCodeEndpointSection } from "@client/pages/settings/components/OpenCodeEndpointSection";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { ModelValues } from "@client/pages/settings/types";
 import {
@@ -147,6 +148,9 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
           onApiKeyChange: setPurposeApiKey,
         }}
       />
+      {selectedProvider === "opencode" ? (
+        <OpenCodeEndpointSection values={values} disabled={disabled} />
+      ) : null}
     </SettingsSectionFrame>
   );
 };

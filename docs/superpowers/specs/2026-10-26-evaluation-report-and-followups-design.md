@@ -125,15 +125,17 @@ No hay columnas de respuestas de formulario, ni de fingerprint.
 
 ```ts
 export interface EvaluationReportMeta {
-  generatedAt: string;
-  model: string;
   basis: "full_jd" | "partial_jd" | "minimal_jd";
   confidence: number; // 0-1
   verdict: "apply" | "consider" | "skip";
 }
 
+// `generatedAt` y `model` viven en sus columnas (`evaluation_report_generated_at`,
+// `evaluation_report_model`), no en el JSON de meta.
 export interface JobDetail extends Job {
   evaluationReport: string | null;
+  evaluationReportGeneratedAt: string | null;
+  evaluationReportModel: string | null;
   evaluationReportMeta: EvaluationReportMeta | null;
   evaluationReportGenerating: boolean;
 }
@@ -225,13 +227,15 @@ export const FOLLOWUP_RULES = {
   interviewThankYouDays: 1,
 } as const;
 
-// `appliedAt`, `lastContactAt` y `now` en epoch ms: aquí es aritmética.
-// El contrato HTTP los expone como ISO / `YYYY-MM-DD`.
+// `appliedAt`, `lastContactAt` y `now` en epoch **segundos**, igual que
+// `tasks.due_date` y `stage_events.occurred_at` (formatTimestamp multiplica por 1000).
+// El contrato HTTP expone `appliedAt` en ISO y `nextDueOn` como `YYYY-MM-DD`.
 export type FollowupComputeInput = {
   stage: ApplicationStage;
   outcome: JobOutcome | null;
   appliedAt: number;
-  lastContactAt: number; // max(appliedAt, último stage_event, última tarea follow_up completada)
+  // max(appliedAt, último stage_event.occurredAt). Las tareas no tienen timestamps
+  // (`tasks` no tiene created_at), así que el contacto se registra como stage_event.
   followUpsSent: number;
   now: number;
 };
@@ -280,6 +284,8 @@ estado es `due` y la fecha mostrada es la real: "vencido desde el 2 nov", no una
 |---|---|---|---|
 | POST | `/api/jobs/:id/evaluation` | `202 { jobId, status: "generating" }` | 404, 409, 422, 502, 503 |
 | GET | `/api/follow-ups` | `200 FollowupsResponse` | — |
+| POST | `/api/jobs/:id/tasks` | `201 ApplicationTask` | 404, 422 |
+| PATCH | `/api/jobs/:id/tasks/:taskId` | `200 ApplicationTask` | 404, 422 |
 
 POST de evaluación:
 
@@ -296,6 +302,27 @@ POST de evaluación:
 La idempotencia de cobro se pasa a `withHostedUsageReservation` como
 `${tenantId}:${jobId}:${model}`, dentro del trabajo posterior al compare-and-set.
 
+### 6.1 Endpoints de tareas (nuevos, no existían)
+
+`tasks` sólo tenía lectura (`GET /api/jobs/:id/tasks` en `routes/jobs/stages.ts:34`); no hay
+ninguna escritura de tareas en el servidor. La cadencia necesita crear y completar tareas, así
+que entra en esta feature:
+
+| Método | Ruta | Cuerpo | Devuelve |
+|---|---|---|---|
+| POST | `/api/jobs/:id/tasks` | `{ type, title, dueDate, notes? }` | `201 ApplicationTask` |
+| PATCH | `/api/jobs/:id/tasks/:taskId` | `{ isCompleted?, dueDate?, notes? }` | `200 ApplicationTask` |
+
+Ambas validan con Zod (`type` contra `APPLICATION_TASK_TYPES`), comprueban que el job y la tarea
+pertenecen al tenant (`notFound` si no), y usan `applicationTracking.ts` como única puerta a la
+tabla. `dueDate` va en segundos, como el resto del dominio. El sidebar del job ya renderiza
+"Upcoming tasks" (`JobPageRightSidebar.tsx:288`), así que las tareas creadas por la cadencia
+aparecen ahí sin tocar esa vista.
+
+El "follow-up enviado" no modifica la etapa: se registra con
+`transitionStage(id, "no_change", ts, { eventType: "note", eventLabel: "Follow-up enviado" })`,
+que ya existe y acepta notas sin cambiar de etapa.
+
 ## 7. UI
 
 - **`JobEvaluationPanel.tsx`** (nuevo, `client/pages/job-page/`): veredicto con `basis` y
@@ -309,8 +336,10 @@ La idempotencia de cobro se pasa a `withHostedUsageReservation` como
   (`JobPage.tsx:91`) y la navegación lateral. Ruta `/job/:id/evaluation`.
 - **`FollowupsPage.tsx`** (nuevo): bloques **Vencidos** y **Próximos**, ordenados por
   `nextDueOn`. Cada fila muestra empresa, rol, etapa, fecha de aplicación, `nextDueOn` como
-  fecha ("3 nov") y dos acciones: **Programar** (crea tarea `follow_up` con `dueDate`) y
-  **Marcar enviado** (crea la tarea ya completada). No hay bloque de agotados.
+  fecha ("3 nov") y dos acciones: **Programar** (crea tarea `follow_up` con `dueDate` en
+  segundos) y **Marcar enviado** (crea la tarea ya completada **y** registra un `stage_event`
+  con `eventType: "note"` y título "Follow-up enviado", que es lo que mueve `lastContactAt`
+  y aparece en el timeline). No hay bloque de agotados.
 - Botones deshabilitados con `TooltipWhenDisabled` y su motivo ("falta la descripción del job").
 
 ## 8. Score frente a informe

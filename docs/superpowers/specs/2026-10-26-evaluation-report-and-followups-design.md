@@ -297,7 +297,7 @@ que ya se refresca al hacer foco. No hay endpoint de progreso.
   legitimidad, aviso de "informe desactualizado", botón Generar/Regenerar, y la lista de
   respuestas de formulario con botón de copiar por respuesta.
 - **Vista nueva en `JobPage`**: `evaluation`, siguiendo el patrón de `normalizeMemoryView`
-  (`JobPage.tsx:92`) y la navegación lateral existente. Ruta `/job/:id/evaluation`.
+  (`JobPage.tsx:91`) y la navegación lateral existente. Ruta `/job/:id/evaluation`.
 - **`FollowupsPage.tsx`** (nuevo, en `orchestrator/src/client/pages/`): tres bloques —
   Vencidos, Próximos, Agotados — con empresa, rol, días desde la aplicación, estado y dos
   acciones: **Programar** (crea tarea `follow_up` con `dueDate`) y **Marcar enviado**

@@ -545,6 +545,94 @@ function inferOutcome(
   return null;
 }
 
+export async function createApplicationTask(input: {
+  applicationId: string;
+  type: ApplicationTaskType;
+  title: string;
+  dueDate: number | null;
+  notes?: string | null;
+  isCompleted?: boolean;
+}): Promise<ApplicationTask> {
+  const scope = getPrivateDataScope();
+  const task: ApplicationTask = {
+    id: randomUUID(),
+    applicationId: input.applicationId,
+    type: input.type,
+    title: input.title,
+    dueDate: input.dueDate,
+    isCompleted: input.isCompleted ?? false,
+    notes: input.notes ?? null,
+  };
+
+  await db.insert(tasks).values({
+    id: task.id,
+    tenantId: scope.tenantId,
+    userId: scope.userId,
+    applicationId: task.applicationId,
+    type: task.type,
+    title: task.title,
+    dueDate: task.dueDate,
+    isCompleted: task.isCompleted,
+    notes: task.notes,
+  });
+
+  return task;
+}
+
+export async function updateApplicationTask(input: {
+  applicationId: string;
+  taskId: string;
+  isCompleted?: boolean;
+  dueDate?: number | null;
+  notes?: string | null;
+}): Promise<ApplicationTask | null> {
+  const existing = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        tasksScopeFilter(),
+        eq(tasks.id, input.taskId),
+        eq(tasks.applicationId, input.applicationId),
+      ),
+    )
+    .get();
+
+  if (!existing) return null;
+
+  const next = {
+    isCompleted: input.isCompleted ?? existing.isCompleted ?? false,
+    dueDate: input.dueDate === undefined ? existing.dueDate : input.dueDate,
+    notes: input.notes === undefined ? existing.notes : input.notes,
+  };
+
+  await db
+    .update(tasks)
+    .set(next)
+    .where(and(tasksScopeFilter(), eq(tasks.id, input.taskId)));
+
+  return {
+    id: existing.id,
+    applicationId: existing.applicationId,
+    type: existing.type as ApplicationTaskType,
+    title: existing.title,
+    dueDate: next.dueDate,
+    isCompleted: next.isCompleted,
+    notes: next.notes,
+  };
+}
+
+export function recordFollowupSent(
+  applicationId: string,
+  occurredAt: number,
+): StageEvent {
+  return transitionStage(applicationId, "no_change", occurredAt, {
+    eventType: "note",
+    eventLabel: "Follow-up enviado",
+    actor: "user",
+  });
+}
+
 function isClosingStage(toStage: ApplicationStage): boolean {
   return toStage === "closed" || toStage === "offer";
 }

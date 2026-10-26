@@ -256,7 +256,7 @@ git commit -m "feat(jobs): store evaluation report fields on JobDetail"
   - `renderEvaluationMarkdown(input: { job: Job; result: EvaluationReportResult }): string`
   - `EvaluationReportNotApplicableError`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // orchestrator/src/server/services/evaluation-report.test.ts
@@ -400,12 +400,12 @@ describe("renderEvaluationMarkdown", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/services/evaluation-report.test.ts`
 Expected: FAIL — no existe `./evaluation-report`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `shared/src/prompt-template-definitions.ts`, dentro de `PROMPT_TEMPLATE_DEFINITIONS`:
 
@@ -703,7 +703,7 @@ export function sanitizeProfileForPrompt(profile: Record<string, unknown>) {
 
 Es la única forma de reutilizarla sin duplicar la lógica de saneado ni refactorizar `scorer.ts` en esta spec.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/services/evaluation-report.test.ts`
 Expected: PASS — 8 tests. El mock de `./modelSelection` y `./hosted-usage` evita cualquier llamada real.
@@ -723,12 +723,12 @@ it("sends only the sanitized profile to the model", async () => {
 
 La aserción es estable: `sanitizeBasics` sólo conserva `label`, `headline`, `summary` y `location` (`scorer.ts:630-633`), así que el email nunca llega al prompt. No relajar la aserción si falla: si falla, el saneado cambió y hay que mirarlo.
 
-- [ ] **Step 5: Run the settings component test (la plantilla nueva se renderiza sola)**
+- [x] **Step 5: Run the settings component test (la plantilla nueva se renderiza sola)**
 
 Run: `npm --workspace orchestrator run test:run -- src/client/pages/settings/components/PromptTemplatesSection.test.tsx`
 Expected: PASS. Si falla porque el test enumera una lista fija de plantillas, actualizar esa lista para incluir `evaluationReportPromptTemplate`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared/src/prompt-template-definitions.ts orchestrator/src/server/services/evaluation-report.ts orchestrator/src/server/services/evaluation-report.test.ts
@@ -747,7 +747,7 @@ git commit -m "feat(evaluation): generate a readable report from job and profile
 - Consumes: `jobsScopeFilter` (ya en el archivo).
 - Produces: `beginEvaluationIfIdle(id: string, options: { staleAfterSeconds: number; now?: number }): Promise<boolean>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // orchestrator/src/server/repositories/evaluation-lock.test.ts
@@ -818,12 +818,12 @@ describe.sequential("evaluation lock", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/repositories/evaluation-lock.test.ts`
 Expected: FAIL — `beginEvaluationIfIdle is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 En `orchestrator/src/server/repositories/jobs.ts`, junto a `updateJob`:
 
@@ -857,12 +857,12 @@ export async function beginEvaluationIfIdle(
 
 Añadir `lt` y `or` a los imports de `drizzle-orm` del archivo.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/repositories/evaluation-lock.test.ts`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add orchestrator/src/server/repositories/jobs.ts orchestrator/src/server/repositories/evaluation-lock.test.ts
@@ -882,7 +882,7 @@ git commit -m "feat(evaluation): guard report generation with a compare-and-set 
 - Consumes: `beginEvaluationIfIdle` (Task 3), `generateEvaluationReport` (Task 2), `getJobById`, `updateJob`, `getProfile`.
 - Produces: `POST /api/jobs/:id/evaluation` → `202 { jobId, status: "generating" }`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // orchestrator/src/server/api/routes/jobs.evaluation.test.ts
@@ -1008,12 +1008,12 @@ describe.sequential("evaluation API", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/api/routes/jobs.evaluation.test.ts`
 Expected: FAIL — 404 en el POST.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `orchestrator/src/server/api/routes/jobs/evaluation.ts`:
 
@@ -1108,12 +1108,12 @@ import { jobsEvaluationRouter } from "./evaluation";
 jobsRouter.use(jobsEvaluationRouter);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/api/routes/jobs.evaluation.test.ts`
 Expected: PASS — 5 tests.
 
-- [ ] **Step 5: Añadir el caso de aislamiento entre tenants**
+- [x] **Step 5: Añadir el caso de aislamiento entre tenants**
 
 En `orchestrator/src/server/api/routes/tenant-isolation.test.ts`, dentro del `describe.sequential`
 existente (que ya aplica `AUTH_ENV` y tiene los helpers `signup`, `importManualJob` y
@@ -1142,7 +1142,7 @@ existente (que ya aplica `AUTH_ENV` y tiene los helpers `signup`, `importManualJ
 Run: `npm --workspace orchestrator run test:run -- src/server/api/routes/tenant-isolation.test.ts`
 Expected: PASS, incluido el caso nuevo.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add orchestrator/src/server/api/routes/jobs/evaluation.ts orchestrator/src/server/api/routes/jobs/index.ts orchestrator/src/server/api/routes/jobs.evaluation.test.ts
@@ -1164,7 +1164,7 @@ git commit -m "feat(api): add report generation endpoint with lock and error map
 - Consumes: `POST /api/jobs/:id/evaluation`, `api.updateJob`.
 - Produces: `<JobEvaluationPanel job={job} />`, vista `"evaluation"`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 // orchestrator/src/client/pages/job-page/JobEvaluationPanel.test.tsx
@@ -1246,12 +1246,12 @@ describe("JobEvaluationPanel", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --workspace orchestrator run test:run -- src/client/pages/job-page/JobEvaluationPanel.test.tsx`
 Expected: FAIL — no existe el componente.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `orchestrator/src/client/api/jobs.ts`:
 
@@ -1391,17 +1391,17 @@ Y en `memoryLinks`, después de `emails`:
 2. Renderiza `<JobEvaluationPanel job={job} />` cuando `activeMemoryView === "evaluation"`.
 3. La query del job pasa a `useQuery<JobDetail>` para que el panel reciba el tipo completo.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --workspace orchestrator run test:run -- src/client/pages/job-page/JobEvaluationPanel.test.tsx`
 Expected: PASS — 4 tests.
 
-- [ ] **Step 5: Build del cliente**
+- [x] **Step 5: Build del cliente**
 
 Run: `npm --workspace orchestrator run build:client`
 Expected: build correcto.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add orchestrator/src/client/api/jobs.ts orchestrator/src/client/pages/job-page/JobEvaluationPanel.tsx orchestrator/src/client/pages/job-page/JobEvaluationPanel.test.tsx orchestrator/src/client/pages/job-page/JobPageLeftSidebar.tsx orchestrator/src/client/pages/JobPage.tsx
@@ -1420,7 +1420,7 @@ git commit -m "feat(evaluation): show the report in a job page view"
 - Consumes: nada.
 - Produces: página publicada en el docs-site.
 
-- [ ] **Step 1: Escribir la página**
+- [x] **Step 1: Escribir la página**
 
 ```markdown
 ---
@@ -1463,7 +1463,7 @@ What gets sent to the model: the job description and the profile fields job-ops 
 - [/docs/features/follow-ups](/docs/features/follow-ups)
 ```
 
-- [ ] **Step 2: Enlazar desde el índice**
+- [x] **Step 2: Enlazar desde el índice**
 
 En `docs-site/docs/features/overview.md`, añadir:
 
@@ -1471,12 +1471,12 @@ En `docs-site/docs/features/overview.md`, añadir:
 - [Evaluation report](/docs/features/evaluation-report) — why a job fits your CV, with evidence and gaps.
 ```
 
-- [ ] **Step 3: Build del docs-site**
+- [x] **Step 3: Build del docs-site**
 
 Run: `npm --prefix docs-site run build`
 Expected: build correcto, sin enlaces roto.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs-site/docs/features/evaluation-report.md docs-site/docs/features/overview.md

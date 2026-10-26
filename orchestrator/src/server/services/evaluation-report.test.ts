@@ -37,7 +37,6 @@ vi.mock("./writing-style", async (importOriginal) => {
   };
 });
 
-import { getSetting } from "../repositories/settings";
 import {
   EvaluationReportNotApplicableError,
   type EvaluationReportResult,

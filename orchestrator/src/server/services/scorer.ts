@@ -542,7 +542,7 @@ function buildScoringPrompt(
   })}\n\nJOB DATA (JSON):\n${jobJson}\n\n${SCORING_OUTPUT_INSTRUCTIONS}`;
 }
 
-function sanitizeProfileForPrompt(
+export function sanitizeProfileForPrompt(
   profile: Record<string, unknown>,
 ): Record<string, unknown> {
   return {

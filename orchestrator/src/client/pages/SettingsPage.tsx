@@ -810,6 +810,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
         effective: settings?.tailoringPromptTemplate?.value ?? "",
         default: settings?.tailoringPromptTemplate?.default ?? "",
       },
+      evaluationReportPromptTemplate: {
+        effective: settings?.evaluationReportPromptTemplate?.value ?? "",
+        default: settings?.evaluationReportPromptTemplate?.default ?? "",
+      },
       scoringPromptTemplate: {
         effective: settings?.scoringPromptTemplate?.value ?? "",
         default: settings?.scoringPromptTemplate?.default ?? "",
@@ -1369,6 +1373,10 @@ export const SettingsPage: React.FC = () => {
           normalizeString(data.tailoringPromptTemplate),
           promptTemplates.tailoringPromptTemplate.default,
         ),
+        evaluationReportPromptTemplate: nullIfSame(
+          normalizeString(data.evaluationReportPromptTemplate),
+          promptTemplates.evaluationReportPromptTemplate.default,
+        ),
         scoringPromptTemplate: nullIfSame(
           normalizeString(data.scoringPromptTemplate),
           promptTemplates.scoringPromptTemplate.default,
@@ -1644,6 +1652,8 @@ export const SettingsPage: React.FC = () => {
           promptTemplates.ghostwriterSystemPromptTemplate.default ||
           promptTemplates.tailoringPromptTemplate.effective !==
             promptTemplates.tailoringPromptTemplate.default ||
+          promptTemplates.evaluationReportPromptTemplate.effective !==
+            promptTemplates.evaluationReportPromptTemplate.default ||
           promptTemplates.scoringPromptTemplate.effective !==
             promptTemplates.scoringPromptTemplate.default
           ? { label: "Customized", variant: "outline" as const }

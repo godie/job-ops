@@ -252,6 +252,11 @@ export const createAppSettings = (
     default: getDefaultPromptTemplate("tailoringPromptTemplate"),
     override: null,
   },
+  evaluationReportPromptTemplate: {
+    value: getDefaultPromptTemplate("evaluationReportPromptTemplate"),
+    default: getDefaultPromptTemplate("evaluationReportPromptTemplate"),
+    override: null,
+  },
   scoringPromptTemplate: {
     value: getDefaultPromptTemplate("scoringPromptTemplate"),
     default: getDefaultPromptTemplate("scoringPromptTemplate"),

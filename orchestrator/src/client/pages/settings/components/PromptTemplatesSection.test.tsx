@@ -11,6 +11,7 @@ const PromptTemplatesHarness = () => {
     defaultValues: {
       ghostwriterSystemPromptTemplate: "Custom Ghostwriter",
       tailoringPromptTemplate: "Custom Tailoring",
+      evaluationReportPromptTemplate: "Custom Evaluation",
       scoringPromptTemplate: "Custom Scoring",
     },
   });
@@ -29,6 +30,12 @@ const PromptTemplatesHarness = () => {
             tailoringPromptTemplate: {
               effective: "Custom Tailoring",
               default: getDefaultPromptTemplate("tailoringPromptTemplate"),
+            },
+            evaluationReportPromptTemplate: {
+              effective: "Custom Evaluation",
+              default: getDefaultPromptTemplate(
+                "evaluationReportPromptTemplate",
+              ),
             },
             scoringPromptTemplate: {
               effective: "Custom Scoring",

@@ -284,8 +284,8 @@ estado es `due` y la fecha mostrada es la real: "vencido desde el 2 nov", no una
 |---|---|---|---|
 | POST | `/api/jobs/:id/evaluation` | `202 { jobId, status: "generating" }` | 404, 409, 422, 502, 503 |
 | GET | `/api/follow-ups` | `200 FollowupsResponse` | — |
-| POST | `/api/jobs/:id/tasks` | `201 ApplicationTask` | 404, 422 |
-| PATCH | `/api/jobs/:id/tasks/:taskId` | `200 ApplicationTask` | 404, 422 |
+| POST | `/api/jobs/:id/tasks` | `201 ApplicationTask` | 400, 404 |
+| PATCH | `/api/jobs/:id/tasks/:taskId` | `200 ApplicationTask` | 400, 404 |
 
 POST de evaluación:
 
@@ -313,9 +313,11 @@ que entra en esta feature:
 | POST | `/api/jobs/:id/tasks` | `{ type, title, dueDate, notes? }` | `201 ApplicationTask` |
 | PATCH | `/api/jobs/:id/tasks/:taskId` | `{ isCompleted?, dueDate?, notes? }` | `200 ApplicationTask` |
 
-Ambas validan con Zod (`type` contra `APPLICATION_TASK_TYPES`), comprueban que el job y la tarea
-pertenecen al tenant (`notFound` si no), y usan `applicationTracking.ts` como única puerta a la
-tabla. `dueDate` va en segundos, como el resto del dominio. El sidebar del job ya renderiza
+Ambas validan con Zod (`type` contra `APPLICATION_TASK_TYPES`) y un ZodError se mapea a
+**400 `INVALID_REQUEST`**, que es la convención del repo (`toAppError` → `badRequest`); 422 queda
+reservado a los casos semánticos del informe (job sin descripción). Comprueban que el job y la
+tarea pertenecen al tenant (`notFound` si no), y usan `applicationTracking.ts` como única puerta a
+la tabla. `dueDate` va en segundos, como el resto del dominio. El sidebar del job ya renderiza
 "Upcoming tasks" (`JobPageRightSidebar.tsx:288`), así que las tareas creadas por la cadencia
 aparecen ahí sin tocar esa vista.
 

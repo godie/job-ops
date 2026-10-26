@@ -1356,7 +1356,7 @@ git commit -m "feat(followups): add follow-ups page with schedule and mark-sent 
 
 **Files:**
 - Create: `docs-site/docs/features/follow-ups.md`
-- Modify: `docs-site/docs/features/overview.md` (enlace)
+- Modify: `docs-site/sidebars.ts` (la navegación es explícita; `features/overview.md` es la página del dashboard, no un índice)
 
 **Interfaces:**
 - Consumes: nada.
@@ -1409,12 +1409,14 @@ Dates are calendar dates, not "in two days": a follow-up due on 8 November says 
 - [/docs/features/evaluation-report](/docs/features/evaluation-report)
 ```
 
-- [ ] **Step 2: Enlazar desde el índice**
+- [ ] **Step 2: Añadir la página al sidebar**
 
-En `docs-site/docs/features/overview.md`, añadir en la lista de features:
+En `docs-site/sidebars.ts`, dentro de la categoría **Core Features**, tras
+`"features/in-progress-board"`:
 
-```markdown
-- [Follow-ups](/docs/features/follow-ups) — the date of your next follow-up for every open application.
+```ts
+        "features/in-progress-board",
+        "features/follow-ups",
 ```
 
 - [ ] **Step 3: Build del docs-site**

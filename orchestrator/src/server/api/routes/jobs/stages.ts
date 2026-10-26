@@ -12,8 +12,8 @@ import {
   updateApplicationTask,
   updateStageEvent,
 } from "@server/services/applicationTracking";
-import { APPLICATION_TASK_TYPES } from "@shared/types";
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
+import { APPLICATION_TASK_TYPES } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import {

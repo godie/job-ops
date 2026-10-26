@@ -716,32 +716,107 @@ export async function updateJob(
 }
 
 /**
- * Take the evaluation lock for a job. Compare-and-set on
- * `evaluation_report_generating`, so two concurrent requests can never both
- * start a report. A lock older than `staleAfterSeconds` is handed over so a
- * crashed run cannot block the job forever.
+ * Take the evaluation lock for a job and return its ownership token, or null
+ * when another attempt holds it. Compare-and-set on `evaluation_report_generating`,
+ * so two concurrent requests can never both start a report. An attempt older
+ * than `staleAfterSeconds` is handed over so a crashed run cannot block the job
+ * forever, and the token tells a superseded attempt that it no longer owns the
+ * lock. Staleness is measured on the dedicated column, not on `updatedAt`, which
+ * any unrelated write to the row would refresh.
  */
 export async function beginEvaluationIfIdle(
   id: string,
   options: { staleAfterSeconds: number; now?: number },
-): Promise<boolean> {
+): Promise<string | null> {
   const now = options.now ?? Math.floor(Date.now() / 1000);
-  const nowIso = new Date(now * 1000).toISOString();
+  const token = new Date(now * 1000).toISOString();
   const cutoffIso = new Date(
     (now - options.staleAfterSeconds) * 1000,
   ).toISOString();
 
   const result = db
     .update(jobs)
-    .set({ evaluationReportGenerating: true, updatedAt: nowIso })
+    .set({
+      evaluationReportGenerating: true,
+      evaluationReportStartedAt: token,
+      updatedAt: token,
+    })
     .where(
       and(
         jobsScopeFilter(),
         eq(jobs.id, id),
         or(
           eq(jobs.evaluationReportGenerating, false),
-          lt(jobs.updatedAt, cutoffIso),
+          isNull(jobs.evaluationReportStartedAt),
+          lt(jobs.evaluationReportStartedAt, cutoffIso),
         ),
+      ),
+    )
+    .run();
+
+  return (result.changes ?? 0) === 1 ? token : null;
+}
+
+/**
+ * Release the evaluation lock only if `token` still owns it. Returns false when
+ * the attempt was superseded, so a slow run cannot free a lock that a newer run
+ * took over.
+ */
+export async function releaseEvaluationLock(
+  id: string,
+  token: string,
+): Promise<boolean> {
+  const result = db
+    .update(jobs)
+    .set({
+      evaluationReportGenerating: false,
+      evaluationReportStartedAt: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, id),
+        eq(jobs.evaluationReportGenerating, true),
+        eq(jobs.evaluationReportStartedAt, token),
+      ),
+    )
+    .run();
+
+  return (result.changes ?? 0) === 1;
+}
+
+/**
+ * Store the generated report and release the lock in one statement, but only
+ * while `token` still owns it. Returns false when the attempt was superseded,
+ * in which case nothing is written: the newer attempt keeps both the lock and
+ * the last word on the row.
+ */
+export async function finalizeEvaluationReport(input: {
+  id: string;
+  token: string;
+  report: string;
+  model: string;
+  meta: string;
+  generatedAt: string;
+}): Promise<boolean> {
+  const result = db
+    .update(jobs)
+    .set({
+      evaluationReport: input.report,
+      evaluationReportGeneratedAt: input.generatedAt,
+      evaluationReportModel: input.model,
+      evaluationReportMeta: input.meta,
+      evaluationReportGenerating: false,
+      evaluationReportStartedAt: null,
+      updatedAt: input.generatedAt,
+    })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, input.id),
+        eq(jobs.evaluationReportGenerating, true),
+        eq(jobs.evaluationReportStartedAt, input.token),
       ),
     )
     .run();

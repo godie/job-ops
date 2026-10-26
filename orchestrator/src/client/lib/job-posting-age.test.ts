@@ -4,11 +4,15 @@ import {
   getPostingDateSortValue,
 } from "./job-posting-age";
 
-const NOW = new Date("2026-05-27T12:00:00.000Z");
+// A local wall-clock moment: posting age is measured against the user's
+// calendar, not a UTC instant. Anchoring it locally keeps the expectations
+// stable in every timezone (27 May noon UTC is already the 28th in UTC+14).
+const NOW = new Date(2026, 4, 27, 12, 0, 0, 0);
 
 describe("formatPostingAgeLabel", () => {
   it("formats recent ISO timestamps as hours ago", () => {
-    expect(formatPostingAgeLabel("2026-05-27T09:00:00.000Z", NOW)).toEqual(
+    const threeHoursAgo = new Date(NOW.getTime() - 3 * 3_600_000).toISOString();
+    expect(formatPostingAgeLabel(threeHoursAgo, NOW)).toEqual(
       expect.objectContaining({
         label: "3h ago",
         inlineLabel: "Posted 3h ago",
@@ -22,6 +26,20 @@ describe("formatPostingAgeLabel", () => {
       expect.objectContaining({
         label: "2d ago",
         inlineLabel: "Posted 2d ago",
+        tooltip: "Source posting date: 25 May 2026",
+        tone: "fresh",
+      }),
+    );
+  });
+
+  it("keeps yesterday as yesterday across a DST spring-forward", () => {
+    // 8 Mar 2026 is a 23-hour local day in zones that observe DST. Dividing
+    // milliseconds rounds down to 0 days and the label becomes "today".
+    const nowAfterDst = new Date(2026, 2, 9, 12, 0, 0, 0);
+    expect(formatPostingAgeLabel("2026-03-08", nowAfterDst)).toEqual(
+      expect.objectContaining({
+        label: "yesterday",
+        inlineLabel: "Posted yesterday",
         tone: "fresh",
       }),
     );

@@ -197,16 +197,17 @@ describe("opencode JSON schema validation", () => {
 
 describe("opencode endpoint discovery", () => {
   beforeEach(() => {
-    delete process.env.OPENCODE_URL;
-    delete process.env.OPENCODE_PASSWORD;
+    // "" reads as "absent"; deleting would fall back to the frozen snapshot.
+    process.env.OPENCODE_URL = "";
+    process.env.OPENCODE_PASSWORD = "";
     operatorSettingsMock.url = null;
     operatorSettingsMock.password = null;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete process.env.OPENCODE_URL;
-    delete process.env.OPENCODE_PASSWORD;
+    process.env.OPENCODE_URL = "";
+    process.env.OPENCODE_PASSWORD = "";
   });
 
   it("uses the service registration file when nothing is stored", async () => {

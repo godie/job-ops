@@ -26,7 +26,9 @@ describe("LlmService", () => {
   beforeEach(() => {
     process.env.LLM_PROVIDER = "openrouter";
     process.env.OPENROUTER_API_KEY = "test-api-key";
-    delete process.env.LLM_API_KEY;
+    // "" means "absent": deleting falls back to the envSettings snapshot that
+    // was frozen when the module was imported.
+    process.env.LLM_API_KEY = "";
     global.fetch = vi.fn();
   });
 
@@ -40,7 +42,7 @@ describe("LlmService", () => {
   });
 
   it("returns error when API key is missing", async () => {
-    delete process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "";
 
     const llm = new LlmService({ provider: "openrouter" });
     const result = await llm.callJson({
@@ -67,13 +69,17 @@ describe("LlmService", () => {
       }),
     } as Response);
 
+    const envKeyBeforeConstruct = process.env.LLM_API_KEY;
+
     const llm = new LlmService({
       provider: "openrouter",
       apiKey: "test-api-key",
     });
 
-    // Backwards-compat should not mutate the process-wide environment.
-    expect(process.env.LLM_API_KEY).toBeUndefined();
+    // Backwards-compat should not mutate the process-wide environment. The
+    // suite models "absent" as "", so compare before/after rather than
+    // pinning the value to undefined.
+    expect(process.env.LLM_API_KEY).toBe(envKeyBeforeConstruct);
 
     const result = await llm.callJson<{ value: string; count: number }>({
       model: "test-model",

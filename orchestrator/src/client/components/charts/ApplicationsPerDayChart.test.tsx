@@ -54,6 +54,17 @@ vi.mock("lucide-react", () => ({
 describe("ApplicationsPerDayChart - Edge Cases", () => {
   const mockDate = new Date("2025-01-15T12:00:00Z");
 
+  // The chart buckets by local calendar day and derives its window from "now",
+  // so fixtures are anchored to the mocked now instead of absolute dates. In
+  // UTC+13/+14 the local day of `mockDate` is already tomorrow, which would
+  // push absolute January dates out of the 7-day window.
+  const dayInRange = (daysBack: number) => {
+    const day = new Date(mockDate);
+    day.setDate(day.getDate() - daysBack);
+    day.setHours(12, 0, 0, 0);
+    return day.toISOString();
+  };
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(mockDate);
@@ -221,10 +232,10 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
     it("calculates trend percentage correctly for positive trend", () => {
       // First half: 1 app per day avg, Second half: 3 apps per day avg = 200% increase
       const dates = [
-        "2025-01-09T00:00:00Z", // First half
-        "2025-01-15T00:00:00Z", // Second half
-        "2025-01-15T00:00:00Z",
-        "2025-01-15T00:00:00Z",
+        dayInRange(6), // First half
+        dayInRange(0), // Second half
+        dayInRange(0),
+        dayInRange(0),
       ];
       render(
         <ApplicationsPerDayChart
@@ -241,10 +252,10 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
     it("shows down trend for significant negative trend", () => {
       // First half: high activity, Second half: low activity
       const dates = [
-        "2025-01-09T00:00:00Z", // First half - 3 apps
-        "2025-01-09T00:00:00Z",
-        "2025-01-09T00:00:00Z",
-        "2025-01-15T00:00:00Z", // Second half - 1 app
+        dayInRange(6), // First half - 3 apps
+        dayInRange(6),
+        dayInRange(6),
+        dayInRange(0), // Second half - 1 app
       ];
       render(
         <ApplicationsPerDayChart
@@ -323,13 +334,13 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
 
     it("handles applications spread across different days in range", () => {
       const dates = [
-        "2025-01-09T00:00:00Z",
-        "2025-01-10T00:00:00Z",
-        "2025-01-10T00:00:00Z",
-        "2025-01-11T00:00:00Z",
-        "2025-01-11T00:00:00Z",
-        "2025-01-11T00:00:00Z",
-        "2025-01-15T00:00:00Z",
+        dayInRange(6),
+        dayInRange(5),
+        dayInRange(5),
+        dayInRange(4),
+        dayInRange(4),
+        dayInRange(4),
+        dayInRange(0),
       ];
       render(
         <ApplicationsPerDayChart

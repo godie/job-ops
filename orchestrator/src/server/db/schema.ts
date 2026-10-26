@@ -288,6 +288,17 @@ export const jobs = sqliteTable(
     sponsorMatchScore: real("sponsor_match_score"),
     sponsorMatchNames: text("sponsor_match_names"),
 
+    // Evaluation report (only exposed on JobDetail)
+    evaluationReport: text("evaluation_report"),
+    evaluationReportGeneratedAt: text("evaluation_report_generated_at"),
+    evaluationReportModel: text("evaluation_report_model"),
+    evaluationReportMeta: text("evaluation_report_meta"),
+    evaluationReportGenerating: integer("evaluation_report_generating", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
+
     // Timestamps
     discoveredAt: text("discovered_at")
       .notNull()

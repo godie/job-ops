@@ -34,7 +34,7 @@
 - Consumes: nada.
 - Produces: `EvaluationReportMeta`, `JobDetail`, `mapRowToJobDetail(row)`, `getJobById(id): Promise<JobDetail | null>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // orchestrator/src/server/repositories/job-detail.test.ts
@@ -109,12 +109,12 @@ describe.sequential("job detail", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/repositories/job-detail.test.ts`
 Expected: FAIL — `job.evaluationReport` es `undefined`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `orchestrator/src/server/db/schema.ts`, dentro de `jobs`:
 
@@ -156,21 +156,21 @@ if (!tableHasColumn("jobs", "evaluation_report_generating")) {
 
 ```ts
 export interface EvaluationReportMeta {
-  generatedAt: string;
-  model: string;
-  verdict: "apply" | "consider" | "skip";
   basis: "full_jd" | "partial_jd" | "minimal_jd";
-  confidence: number;
+  confidence: number; // 0-1
+  verdict: "apply" | "consider" | "skip";
 }
 
 export interface JobDetail extends Job {
   evaluationReport: string | null;
-  evaluationReportMeta: Omit<EvaluationReportMeta, "generatedAt" | "model"> | null;
+  evaluationReportGeneratedAt: string | null;
+  evaluationReportModel: string | null;
+  evaluationReportMeta: EvaluationReportMeta | null;
   evaluationReportGenerating: boolean;
 }
 ```
 
-Y en `UpdateJobInput`:
+Y en `UpdateJobInput` (implementado: el meta se persiste como JSON string):
 
 ```ts
   evaluationReport?: string | null;
@@ -222,17 +222,17 @@ export function mapRowToJobDetail(row: typeof jobs.$inferSelect): JobDetail {
 
 Y cambiar `getJobById` para devolver `JobDetail | null` usando `mapRowToJobDetail(row)`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --workspace orchestrator run test:run -- src/server/repositories/job-detail.test.ts`
 Expected: PASS — 2 tests.
 
-- [ ] **Step 5: Run the type check**
+- [x] **Step 5: Run the type check**
 
 Run: `npm --workspace orchestrator run check:types`
 Expected: sin errores. Si algún consumidor de `getJobById` se queja, es porque asumía `Job`; `JobDetail extends Job`, así que sólo fallará si construye el tipo a mano.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add orchestrator/src/server/db/schema.ts orchestrator/src/server/db/migrate.ts shared/src/types/jobs.ts orchestrator/src/server/repositories/jobs.ts orchestrator/src/server/repositories/job-detail.test.ts

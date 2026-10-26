@@ -254,6 +254,24 @@ export interface Job {
   updatedAt: string;
 }
 
+export interface EvaluationReportMeta {
+  basis: "full_jd" | "partial_jd" | "minimal_jd";
+  confidence: number; // 0-1
+  verdict: "apply" | "consider" | "skip";
+}
+
+/**
+ * Job fields plus the evaluation report. Only detail responses carry these;
+ * list responses stay on `JobListItem`.
+ */
+export interface JobDetail extends Job {
+  evaluationReport: string | null;
+  evaluationReportGeneratedAt: string | null;
+  evaluationReportModel: string | null;
+  evaluationReportMeta: EvaluationReportMeta | null;
+  evaluationReportGenerating: boolean;
+}
+
 export type FollowupItem = {
   jobId: string;
   employer: string;
@@ -552,6 +570,11 @@ export interface UpdateWatchlistSelectionsInput {
 }
 
 export interface UpdateJobInput {
+  evaluationReport?: string | null;
+  evaluationReportGeneratedAt?: string | null;
+  evaluationReportModel?: string | null;
+  evaluationReportMeta?: string | null;
+  evaluationReportGenerating?: boolean;
   title?: string;
   employer?: string;
   jobUrl?: string;

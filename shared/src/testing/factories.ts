@@ -3,6 +3,7 @@ import type {
   ApplicationTask,
   AppSettings,
   Job,
+  JobDetail,
   PipelineRun,
   ResumeProjectCatalogItem,
   StageEvent,
@@ -79,6 +80,18 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
   appliedAt: null,
   createdAt: "2025-01-01T00:00:00Z",
   updatedAt: "2025-01-01T00:00:00Z",
+  ...overrides,
+});
+
+export const createJobDetail = (
+  overrides: Partial<JobDetail> = {},
+): JobDetail => ({
+  ...createJob(),
+  evaluationReport: null,
+  evaluationReportGeneratedAt: null,
+  evaluationReportModel: null,
+  evaluationReportMeta: null,
+  evaluationReportGenerating: false,
   ...overrides,
 });
 

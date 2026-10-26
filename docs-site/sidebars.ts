@@ -35,6 +35,7 @@ const sidebars: SidebarsConfig = {
         "features/reactive-resume",
         "features/in-progress-board",
         "features/follow-ups",
+        "features/evaluation-report",
         "features/ghostwriter",
         "features/post-application-tracking",
         "features/visa-sponsors",

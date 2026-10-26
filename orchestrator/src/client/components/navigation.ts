@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   Columns3,
   Eye,
   FilePenLine,
@@ -43,6 +44,7 @@ export const NAV_LINKS: NavLink[] = [
     activePaths: ["/design-resume"],
   },
   { to: "/tracking-inbox", label: "Tracking Inbox", icon: Inbox },
+  { to: "/follow-ups", label: "Follow-ups", icon: CalendarClock },
   {
     to: "/tracer-links",
     label: "Tracer Links",

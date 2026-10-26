@@ -31,6 +31,7 @@ import { OrchestratorPage } from "./pages/OrchestratorPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { TracerLinksPage } from "./pages/TracerLinksPage";
+import { FollowupsPage } from "./pages/FollowupsPage";
 import { TrackingInboxPage } from "./pages/TrackingInboxPage";
 import { VisaSponsorsPage } from "./pages/VisaSponsorsPage";
 import { WatchlistPage } from "./pages/WatchlistPage";
@@ -195,11 +196,8 @@ export const App: React.FC = () => {
                 <Route path="/sign-in" element={<SignInPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/tracer-links" element={<TracerLinksPage />} />
-                <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
-                <Route
-                  path="/tracking-inbox"
-                  element={<TrackingInboxRoute />}
-                />
+                <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />                <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
+                <Route path="/follow-ups" element={<FollowupsPage />} />
                 <Route path="/watchlist" element={<WatchlistPage />} />
                 <Route path="/jobs/:tab" element={<OrchestratorPage />} />
                 <Route

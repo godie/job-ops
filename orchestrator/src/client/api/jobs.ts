@@ -1,6 +1,8 @@
 import type {
   ApplicationStage,
   ApplicationTask,
+  ApplicationTaskType,
+  FollowupsResponse,
   Job,
   JobActionRequest,
   JobActionResponse,
@@ -391,6 +393,50 @@ export async function getJobTasks(
       t: Date.now(),
     }),
   );
+}
+
+export async function fetchFollowups(): Promise<FollowupsResponse> {
+  return fetchApi<FollowupsResponse>("/follow-ups");
+}
+
+export async function createJobTask(
+  jobId: string,
+  input: {
+    type: ApplicationTaskType;
+    title: string;
+    dueDate: number | null;
+    notes?: string | null;
+  },
+): Promise<ApplicationTask> {
+  return fetchApi<ApplicationTask>(`/jobs/${jobId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateJobTask(
+  jobId: string,
+  taskId: string,
+  input: {
+    isCompleted?: boolean;
+    dueDate?: number | null;
+    notes?: string | null;
+  },
+): Promise<ApplicationTask> {
+  return fetchApi<ApplicationTask>(`/jobs/${jobId}/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function recordFollowupSent(jobId: string): Promise<StageEvent> {
+  return fetchApi<StageEvent>(`/jobs/${jobId}/events`, {
+    method: "POST",
+    body: JSON.stringify({
+      eventType: "note",
+      eventLabel: "Follow-up enviado",
+    }),
+  });
 }
 
 export async function transitionJobStage(

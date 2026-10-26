@@ -4,6 +4,7 @@
  * figure about the posting comes from the job row.
  */
 
+import { randomUUID } from "node:crypto";
 import { logger } from "@infra/logger";
 import type { EvaluationReportMeta, Job, ResumeProfile } from "@shared/types";
 import { withHostedUsageReservation } from "./hosted-usage";
@@ -20,6 +21,8 @@ import {
 } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
 import { getWritingStyle } from "./writing-style";
+
+const EVALUATION_LLM_TIMEOUT_MS = 120_000;
 
 export class EvaluationReportNotApplicableError extends Error {
   constructor(message = "This job has no description to evaluate") {
@@ -235,7 +238,10 @@ export async function generateEvaluationReport(input: {
   return withHostedUsageReservation(
     {
       action: "tailoring",
-      idempotencyKey: `${input.job.id}:${model}`,
+      // Per attempt, not per job: a distinct key means a regeneration reserves
+      // (and checks the limit for) its own unit. A job-scoped key would find the
+      // previous, already settled reservation and skip both.
+      idempotencyKey: `${input.job.id}:${model}:${randomUUID()}`,
     },
     async () => {
       const llm = await createConfiguredLlmService("scoring");
@@ -245,6 +251,9 @@ export async function generateEvaluationReport(input: {
         jsonSchema: EVALUATION_SCHEMA,
         maxRetries: 2,
         jobId: input.job.id,
+        // Shorter than the lock window: a hung provider aborts and releases the
+        // lock instead of letting a second attempt take over mid-flight.
+        signal: AbortSignal.timeout(EVALUATION_LLM_TIMEOUT_MS),
       });
 
       if (!result.success) {

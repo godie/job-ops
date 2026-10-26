@@ -298,6 +298,9 @@ export const jobs = sqliteTable(
     })
       .notNull()
       .default(false),
+    // Ownership token for the generation lock: the ISO stamp of the attempt
+    // that currently holds it. A stale attempt cannot release a newer one.
+    evaluationReportStartedAt: text("evaluation_report_started_at"),
 
     // Timestamps
     discoveredAt: text("discovered_at")

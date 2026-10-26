@@ -32,6 +32,7 @@ import {
   isNull,
   lt,
   ne,
+  or,
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
@@ -712,6 +713,40 @@ export async function updateJob(
     .where(and(jobsScopeFilter(), eq(jobs.id, id)));
 
   return getJobById(id);
+}
+
+/**
+ * Take the evaluation lock for a job. Compare-and-set on
+ * `evaluation_report_generating`, so two concurrent requests can never both
+ * start a report. A lock older than `staleAfterSeconds` is handed over so a
+ * crashed run cannot block the job forever.
+ */
+export async function beginEvaluationIfIdle(
+  id: string,
+  options: { staleAfterSeconds: number; now?: number },
+): Promise<boolean> {
+  const now = options.now ?? Math.floor(Date.now() / 1000);
+  const nowIso = new Date(now * 1000).toISOString();
+  const cutoffIso = new Date(
+    (now - options.staleAfterSeconds) * 1000,
+  ).toISOString();
+
+  const result = db
+    .update(jobs)
+    .set({ evaluationReportGenerating: true, updatedAt: nowIso })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, id),
+        or(
+          eq(jobs.evaluationReportGenerating, false),
+          lt(jobs.updatedAt, cutoffIso),
+        ),
+      ),
+    )
+    .run();
+
+  return (result.changes ?? 0) === 1;
 }
 
 export async function finalizeGeneratedPdfIfCurrent(input: {

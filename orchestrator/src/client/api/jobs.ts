@@ -7,6 +7,7 @@ import type {
   JobActionRequest,
   JobActionResponse,
   JobActionStreamEvent,
+  JobDetail,
   JobDocument,
   JobListItem,
   JobNote,
@@ -85,8 +86,17 @@ export async function getJobsRevision(options?: {
   );
 }
 
-export async function getJob(id: string): Promise<Job> {
-  return fetchApi<Job>(withQuery(`/jobs/${id}`, { t: Date.now() }));
+export async function getJob(id: string): Promise<JobDetail> {
+  return fetchApi<JobDetail>(withQuery(`/jobs/${id}`, { t: Date.now() }));
+}
+
+export async function generateEvaluationReport(
+  jobId: string,
+): Promise<{ jobId: string; status: "generating" }> {
+  return fetchApi<{ jobId: string; status: "generating" }>(
+    `/jobs/${jobId}/evaluation`,
+    { method: "POST" },
+  );
 }
 
 export async function updateJob(

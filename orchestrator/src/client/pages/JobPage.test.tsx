@@ -1,5 +1,8 @@
-import { createAppSettings, createJob } from "@shared/testing/factories.js";
-import type { Job, JobNote } from "@shared/types.js";
+import {
+  createAppSettings,
+  createJobDetail,
+} from "@shared/testing/factories.js";
+import type { Job, JobDetail, JobNote } from "@shared/types.js";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -198,7 +201,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   notesStore = [];
 
-  vi.mocked(api.getJob).mockResolvedValue(createJob() as Job);
+  vi.mocked(api.getJob).mockResolvedValue(createJobDetail() as JobDetail);
   vi.mocked(api.getProfile).mockResolvedValue({});
   vi.mocked(api.getSettings).mockResolvedValue(createAppSettings());
   vi.mocked(api.getResumeProjectsCatalog).mockResolvedValue([]);
@@ -451,7 +454,7 @@ describe("JobPage notes", () => {
 describe("JobPage timeline actions", () => {
   it("shows a log event button on the overview page when stage logging is available", async () => {
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
+      createJobDetail({ status: "in_progress" }),
     );
 
     renderJobPage("/job/job-1");
@@ -466,7 +469,7 @@ describe("JobPage timeline actions", () => {
 
   it("shows a log event button on the timeline page when stage logging is available", async () => {
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
+      createJobDetail({ status: "in_progress" }),
     );
 
     renderJobPage("/job/job-1/timeline");
@@ -504,7 +507,7 @@ describe("JobPage project count", () => {
     };
     vi.mocked(api.getSettings).mockResolvedValue(appSettings);
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ selectedProjectIds: "" }) as Job,
+      createJobDetail({ selectedProjectIds: "" }),
     );
     vi.mocked(api.getResumeProjectsCatalog).mockResolvedValue(
       projectIds.map((id) => ({
@@ -528,13 +531,13 @@ describe("JobPage project count", () => {
 describe("JobPage PDF filenames", () => {
   it("downloads resume PDFs with language-aware German transliteration", async () => {
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({
+      createJobDetail({
         id: "job-1",
         employer: "Müller Büro",
         title: "Straße Plattform",
         pdfPath: "data/pdfs/job-1.pdf",
         status: "ready",
-      }) as Job,
+      }),
     );
     vi.mocked(api.getSettings).mockResolvedValue(
       createAppSettings({
@@ -587,7 +590,7 @@ describe("JobPage back navigation", () => {
 
   it("falls back to the status page when there is no entry page state", async () => {
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
+      createJobDetail({ status: "in_progress" }),
     );
 
     renderJobPage("/job/job-1/timeline");
@@ -631,7 +634,7 @@ describe("JobPage back navigation", () => {
 
   it("triggers celebrateOffer when an offer event is logged", async () => {
     vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
+      createJobDetail({ status: "in_progress" }),
     );
     vi.mocked(api.transitionJobStage).mockResolvedValue({
       id: "evt-offer",

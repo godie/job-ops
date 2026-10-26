@@ -1,6 +1,6 @@
 import * as api from "@client/api";
 import { renderHookWithQueryClient } from "@client/test/renderWithQueryClient";
-import { createJob } from "@shared/testing/factories.js";
+import { createJobDetail as createJob } from "@shared/testing/factories.js";
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrchestratorData } from "./useOrchestratorData";

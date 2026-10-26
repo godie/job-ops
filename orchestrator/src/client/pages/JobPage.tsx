@@ -3,6 +3,7 @@ import {
   type ApplicationStage,
   type ApplicationTask,
   type Job,
+  type JobDetail,
   type JobNote,
   type ResumeProjectCatalogItem,
   STAGE_LABELS,
@@ -80,6 +81,7 @@ import { getDeleteEventDescription } from "./job/deleteEventDescription";
 import { JobTimeline } from "./job/Timeline";
 import { JobDocumentsPanel } from "./job-page/JobDocumentsPanel";
 import { JobEmailsPanel } from "./job-page/JobEmailsPanel";
+import { JobEvaluationPanel } from "./job-page/JobEvaluationPanel";
 import { JobNotesCard } from "./job-page/JobNotesCard";
 import {
   type JobMemoryView,
@@ -94,6 +96,7 @@ const normalizeMemoryView = (view: string | undefined): JobMemoryView => {
     view === "documents" ||
     view === "timeline" ||
     view === "emails" ||
+    view === "evaluation" ||
     view === "ghostwriter"
   ) {
     return view;
@@ -160,7 +163,7 @@ export const JobPage: React.FC = () => {
     window.setTimeout(() => setIsEditDetailsOpen(true), 0);
   }, []);
 
-  const jobQuery = useQuery<Job | null>({
+  const jobQuery = useQuery<JobDetail | null>({
     queryKey: ["jobs", "detail", id ?? null] as const,
     queryFn: () => (id ? api.getJob(id) : Promise.resolve(null)),
     enabled: Boolean(id),
@@ -852,6 +855,10 @@ export const JobPage: React.FC = () => {
             )}
 
             {activeMemoryView === "emails" && <JobEmailsPanel jobId={job.id} />}
+
+            {activeMemoryView === "evaluation" && (
+              <JobEvaluationPanel job={job} />
+            )}
 
             {activeMemoryView === "ghostwriter" && (
               <section className="">

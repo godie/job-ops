@@ -121,6 +121,12 @@ Ghostwriter is available in `discovered` and `ready` job views.
 
 For details, see [Ghostwriter](/docs/next/features/ghostwriter).
 
+### Evaluation views
+
+Each job page has an **Evaluation** link in the left column. It generates a readable report explaining why the job does or does not fit your CV, with an evidence table and the gaps. It needs a job description.
+
+For details, see [Evaluation report](/docs/next/features/evaluation-report).
+
 ### Job notes
 
 The dedicated job page includes a full-width `Notes` section below the stage timeline and job details area.
@@ -234,5 +240,6 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 - [Job Search Bar](/docs/next/features/job-search-bar)
 - [Pipeline Run](/docs/next/features/pipeline-run)
 - [Ghostwriter](/docs/next/features/ghostwriter)
+- [Evaluation report](/docs/next/features/evaluation-report)
 - [Reactive Resume](/docs/next/features/reactive-resume)
 - [Post-Application Tracking](/docs/next/features/post-application-tracking)

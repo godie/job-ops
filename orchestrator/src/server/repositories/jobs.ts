@@ -8,6 +8,7 @@ import type {
   CreateJobInput,
   CreateJobNoteInput,
   Job,
+  JobDetail,
   JobListItem,
   JobLocationEvidence,
   JobNote,
@@ -31,6 +32,7 @@ import {
   isNull,
   lt,
   ne,
+  or,
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
@@ -272,12 +274,49 @@ export async function getJobsRevision(
 /**
  * Get a single job by ID.
  */
-export async function getJobById(id: string): Promise<Job | null> {
+function parseEvaluationReportMeta(
+  raw: string | null,
+): JobDetail["evaluationReportMeta"] {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const meta = parsed as Record<string, unknown>;
+    const verdict = meta.verdict;
+    const basis = meta.basis;
+    const confidence = meta.confidence;
+    if (
+      (verdict !== "apply" && verdict !== "consider" && verdict !== "skip") ||
+      (basis !== "full_jd" &&
+        basis !== "partial_jd" &&
+        basis !== "minimal_jd") ||
+      typeof confidence !== "number"
+    ) {
+      return null;
+    }
+    return { verdict, basis, confidence };
+  } catch {
+    return null;
+  }
+}
+
+export function mapRowToJobDetail(row: typeof jobs.$inferSelect): JobDetail {
+  return {
+    ...mapRowToJob(row),
+    evaluationReport: row.evaluationReport ?? null,
+    evaluationReportGeneratedAt: row.evaluationReportGeneratedAt ?? null,
+    evaluationReportModel: row.evaluationReportModel ?? null,
+    evaluationReportMeta: parseEvaluationReportMeta(row.evaluationReportMeta),
+    evaluationReportGenerating: row.evaluationReportGenerating ?? false,
+  };
+}
+
+export async function getJobById(id: string): Promise<JobDetail | null> {
   const [row] = await db
     .select()
     .from(jobs)
     .where(and(jobsScopeFilter(), eq(jobs.id, id)));
-  return row ? mapRowToJob(row) : null;
+  return row ? mapRowToJobDetail(row) : null;
 }
 
 export async function listJobNotes(jobId: string): Promise<JobNote[]> {
@@ -674,6 +713,40 @@ export async function updateJob(
     .where(and(jobsScopeFilter(), eq(jobs.id, id)));
 
   return getJobById(id);
+}
+
+/**
+ * Take the evaluation lock for a job. Compare-and-set on
+ * `evaluation_report_generating`, so two concurrent requests can never both
+ * start a report. A lock older than `staleAfterSeconds` is handed over so a
+ * crashed run cannot block the job forever.
+ */
+export async function beginEvaluationIfIdle(
+  id: string,
+  options: { staleAfterSeconds: number; now?: number },
+): Promise<boolean> {
+  const now = options.now ?? Math.floor(Date.now() / 1000);
+  const nowIso = new Date(now * 1000).toISOString();
+  const cutoffIso = new Date(
+    (now - options.staleAfterSeconds) * 1000,
+  ).toISOString();
+
+  const result = db
+    .update(jobs)
+    .set({ evaluationReportGenerating: true, updatedAt: nowIso })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, id),
+        or(
+          eq(jobs.evaluationReportGenerating, false),
+          lt(jobs.updatedAt, cutoffIso),
+        ),
+      ),
+    )
+    .run();
+
+  return (result.changes ?? 0) === 1;
 }
 
 export async function finalizeGeneratedPdfIfCurrent(input: {

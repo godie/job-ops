@@ -90,6 +90,40 @@ OUTPUT FORMAT (JSON):
 }
 `.trim(),
   },
+  evaluationReportPromptTemplate: {
+    label: "Evaluation report prompt",
+    description:
+      "Controls the readable evaluation written for a single job. The job data and the output contract are appended automatically.",
+    placeholders: [
+      "profileJson",
+      "jobTitle",
+      "employer",
+      "jobDescription",
+      "outputLanguage",
+    ] as const,
+    defaultTemplate: `
+You are evaluating a job posting against a candidate's CV for that candidate.
+
+JOB TITLE: {{jobTitle}}
+EMPLOYER: {{employer}}
+JOB DESCRIPTION:
+{{jobDescription}}
+
+CANDIDATE PROFILE:
+{{profileJson}}
+
+Write in {{outputLanguage}}.
+
+Rules:
+- Use only evidence present in the profile. If the CV does not support a requirement, mark it as a gap.
+- Never estimate salary, funding, company size or legitimacy. Those come from the job record, not from you.
+- "comp" in scoreBreakdown must be null when the job record has no salary.
+- "verdict" is one of apply, consider or skip.
+- "basis" is full_jd when the description is complete, partial_jd when it is truncated, minimal_jd when it is a stub.
+- "confidence" is 0..1 and expresses how much the posting supports your verdict.
+- Keep the summary to three sentences at most.
+`.trim(),
+  },
   scoringPromptTemplate: {
     label: "Job scoring prompt",
     description:

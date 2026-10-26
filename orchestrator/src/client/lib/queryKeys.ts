@@ -47,6 +47,7 @@ export const queryKeys = {
   },
   jobs: {
     all: ["jobs"] as const,
+    followups: () => [...queryKeys.jobs.all, "followups"] as const,
     inProgressBoard: () =>
       [...queryKeys.jobs.all, "in-progress-board"] as const,
     list: (options?: { statuses?: JobStatus[]; view?: "list" | "full" }) =>

@@ -30,7 +30,13 @@ const originalFetch = global.fetch;
 describe("manual job inference", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    process.env = { ...originalEnv, OPENROUTER_API_KEY: "test-key" };
+    process.env = {
+      ...originalEnv,
+      // Absent credentials are "" here: a delete would fall back to
+      // envSettings' frozen snapshot of the developer's .env.
+      LLM_API_KEY: "",
+      OPENROUTER_API_KEY: "test-key",
+    };
     global.fetch = vi.fn();
     vi.mocked(settingsRepo.getSetting).mockResolvedValue(null);
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
@@ -49,7 +55,7 @@ describe("manual job inference", () => {
   });
 
   it("returns a warning when the API key is missing", async () => {
-    delete process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "";
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({});
 
     const result = await inferManualJobDetails(

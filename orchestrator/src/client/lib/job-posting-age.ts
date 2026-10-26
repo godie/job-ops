@@ -12,7 +12,20 @@ export type PostingAgeTone = "fresh" | "aging" | "old";
 const RELATIVE_SOURCE_PATTERN =
   /\b(ago|today|yesterday|minute|hour|day|week|month|year)s?\b/i;
 
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 function parsePostingDate(value: string): Date | null {
+  const dateOnly = DATE_ONLY_PATTERN.exec(value);
+  if (dateOnly) {
+    // A date-only value is a calendar day from the source, not an instant.
+    // Parsing it as UTC midnight shifts it one day in negative-offset zones.
+    return new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3]),
+    );
+  }
+
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
   const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -23,13 +36,11 @@ function startOfLocalDay(date: Date): Date {
 }
 
 function getCalendarAgeDays(date: Date, now: Date): number {
-  return Math.max(
-    0,
-    Math.floor(
-      (startOfLocalDay(now).getTime() - startOfLocalDay(date).getTime()) /
-        86_400_000,
-    ),
-  );
+  const elapsedMs =
+    startOfLocalDay(now).getTime() - startOfLocalDay(date).getTime();
+  // Local days are 23h or 25h across a DST transition; rounding to the nearest
+  // day keeps yesterday as yesterday when the clocks move.
+  return Math.max(0, Math.round(elapsedMs / 86_400_000));
 }
 
 function getPostingAgeTone(ageDays: number | null): PostingAgeTone {
@@ -123,10 +134,9 @@ export function formatPostingAgeLabel(
 
   const label = formatRelativePostingAge(parsed, now);
   const ageDays = getCalendarAgeDays(parsed, now);
-  const absolute =
-    raw.length === 10
-      ? (formatDate(raw) ?? raw)
-      : (formatDateTime(parsed.toISOString()) ?? raw);
+  const absolute = DATE_ONLY_PATTERN.test(raw)
+    ? (formatDate(parsed.toISOString()) ?? raw)
+    : (formatDateTime(parsed.toISOString()) ?? raw);
 
   return {
     label,

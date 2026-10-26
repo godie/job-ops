@@ -278,6 +278,7 @@ export interface AppSettings {
   ghostwriterSystemPromptTemplate: Resolved<string>;
   ghostwriterStopSlopEnabled: Resolved<boolean>;
   tailoringPromptTemplate: Resolved<string>;
+  evaluationReportPromptTemplate: Resolved<string>;
   scoringPromptTemplate: Resolved<string>;
   searchCities: Resolved<string>;
   locationSearchMode: Resolved<LocationInputMode>;

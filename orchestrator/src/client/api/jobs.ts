@@ -1,10 +1,13 @@
 import type {
   ApplicationStage,
   ApplicationTask,
+  ApplicationTaskType,
+  FollowupsResponse,
   Job,
   JobActionRequest,
   JobActionResponse,
   JobActionStreamEvent,
+  JobDetail,
   JobDocument,
   JobListItem,
   JobNote,
@@ -83,8 +86,17 @@ export async function getJobsRevision(options?: {
   );
 }
 
-export async function getJob(id: string): Promise<Job> {
-  return fetchApi<Job>(withQuery(`/jobs/${id}`, { t: Date.now() }));
+export async function getJob(id: string): Promise<JobDetail> {
+  return fetchApi<JobDetail>(withQuery(`/jobs/${id}`, { t: Date.now() }));
+}
+
+export async function generateEvaluationReport(
+  jobId: string,
+): Promise<{ jobId: string; status: "generating" }> {
+  return fetchApi<{ jobId: string; status: "generating" }>(
+    `/jobs/${jobId}/evaluation`,
+    { method: "POST" },
+  );
 }
 
 export async function updateJob(
@@ -391,6 +403,50 @@ export async function getJobTasks(
       t: Date.now(),
     }),
   );
+}
+
+export async function fetchFollowups(): Promise<FollowupsResponse> {
+  return fetchApi<FollowupsResponse>("/follow-ups");
+}
+
+export async function createJobTask(
+  jobId: string,
+  input: {
+    type: ApplicationTaskType;
+    title: string;
+    dueDate: number | null;
+    notes?: string | null;
+  },
+): Promise<ApplicationTask> {
+  return fetchApi<ApplicationTask>(`/jobs/${jobId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateJobTask(
+  jobId: string,
+  taskId: string,
+  input: {
+    isCompleted?: boolean;
+    dueDate?: number | null;
+    notes?: string | null;
+  },
+): Promise<ApplicationTask> {
+  return fetchApi<ApplicationTask>(`/jobs/${jobId}/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function recordFollowupSent(jobId: string): Promise<StageEvent> {
+  return fetchApi<StageEvent>(`/jobs/${jobId}/events`, {
+    method: "POST",
+    body: JSON.stringify({
+      eventType: "note",
+      eventLabel: "Follow-up enviado",
+    }),
+  });
 }
 
 export async function transitionJobStage(

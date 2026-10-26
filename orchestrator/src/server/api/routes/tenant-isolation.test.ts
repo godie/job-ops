@@ -449,4 +449,26 @@ describe.sequential("Hosted current-user isolation", () => {
     expect(bobList.data.due).toHaveLength(0);
     expect(bobList.data.upcoming).toHaveLength(0);
   });
+
+  it("does not let another user start an evaluation report", async () => {
+    const aliceToken = await signup(baseUrl, "alice-eval", "alice-eval-secret");
+    const bobToken = await signup(baseUrl, "bob-eval", "bob-eval-secret");
+    const aliceJob = await importManualJob(
+      baseUrl,
+      aliceToken,
+      "Evaluation isolation role",
+    );
+
+    const bobRes = await fetch(
+      `${baseUrl}/api/jobs/${aliceJob.id}/evaluation`,
+      { method: "POST", headers: authHeaders(bobToken) },
+    );
+    expect(bobRes.status).toBe(404);
+
+    const aliceRes = await fetch(
+      `${baseUrl}/api/jobs/${aliceJob.id}/evaluation`,
+      { method: "POST", headers: authHeaders(aliceToken) },
+    );
+    expect(aliceRes.status).toBe(202);
+  });
 });

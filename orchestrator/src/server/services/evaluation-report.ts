@@ -13,12 +13,12 @@ import {
   getWritingLanguageLabel,
   resolveWritingOutputLanguage,
 } from "./output-language";
+import { sanitizeProfileForPrompt } from "./profile-prompt";
 import {
   getEffectivePromptTemplate,
   renderPromptTemplate,
 } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
-import { sanitizeProfileForPrompt } from "./scorer";
 import { getWritingStyle } from "./writing-style";
 
 export class EvaluationReportNotApplicableError extends Error {

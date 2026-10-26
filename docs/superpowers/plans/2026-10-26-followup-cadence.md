@@ -1058,13 +1058,12 @@ existente (que ya aplica `AUTH_ENV` y expone `signup`, `importManualJob` y `auth
     const tokenB = await signup(baseUrl, "tenant-fu-b", "password-fu-b");
     const job = await importManualJob(baseUrl, tokenA, "Follow-up isolation role");
 
-    const applyRes = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
-      method: "PATCH",
+    // `PATCH /api/jobs/:id` no acepta `appliedAt`: la aplicación se registra
+    // con una transición de etapa, que es lo que rellena esa columna.
+    const applyRes = await fetch(`${baseUrl}/api/jobs/${job.id}/stages`, {
+      method: "POST",
       headers: authHeaders(tokenA),
-      body: JSON.stringify({
-        status: "applied",
-        appliedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
-      }),
+      body: JSON.stringify({ toStage: "applied" }),
     });
     expect(applyRes.status).toBe(200);
 
@@ -1072,7 +1071,7 @@ existente (que ya aplica `AUTH_ENV` y expone `signup`, `importManualJob` y `auth
       headers: authHeaders(tokenA),
     });
     const ownBody = await ownRes.json();
-    expect(ownBody.data.due).toHaveLength(1);
+    expect(ownBody.data.upcoming).toHaveLength(1);
 
     const otherRes = await fetch(`${baseUrl}/api/follow-ups`, {
       headers: authHeaders(tokenB),

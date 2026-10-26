@@ -254,6 +254,23 @@ export interface Job {
   updatedAt: string;
 }
 
+export type FollowupItem = {
+  jobId: string;
+  employer: string;
+  title: string;
+  jobUrl: string;
+  stage: ApplicationStage;
+  appliedAt: string;
+  nextDueOn: string;
+  status: "due" | "upcoming";
+  step: number;
+};
+
+export type FollowupsResponse = {
+  due: FollowupItem[];
+  upcoming: FollowupItem[];
+};
+
 export type JobListItem = Pick<
   Job,
   | "id"

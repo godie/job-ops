@@ -420,4 +420,33 @@ describe.sequential("Hosted current-user isolation", () => {
     );
     expect(bobAfterScoreDelete.status).toBe(200);
   });
+
+  it("does not list another user's follow-ups", async () => {
+    const aliceToken = await signup(baseUrl, "alice-fu", "alice-fu-secret");
+    const bobToken = await signup(baseUrl, "bob-fu", "bob-fu-secret");
+    const aliceJob = await importManualJob(
+      baseUrl,
+      aliceToken,
+      "Follow-up isolation role",
+    );
+
+    const applyRes = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/stages`, {
+      method: "POST",
+      headers: authHeaders(aliceToken),
+      body: JSON.stringify({ toStage: "applied" }),
+    });
+    expect(applyRes.status).toBe(200);
+
+    const aliceList = await fetch(`${baseUrl}/api/follow-ups`, {
+      headers: { Authorization: `Bearer ${aliceToken}` },
+    }).then((res) => res.json());
+    expect(aliceList.data.upcoming).toHaveLength(1);
+    expect(aliceList.data.upcoming[0].jobId).toBe(aliceJob.id);
+
+    const bobList = await fetch(`${baseUrl}/api/follow-ups`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    }).then((res) => res.json());
+    expect(bobList.data.due).toHaveLength(0);
+    expect(bobList.data.upcoming).toHaveLength(0);
+  });
 });

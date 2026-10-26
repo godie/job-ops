@@ -31,6 +31,8 @@ describe("Model Selection Logic", () => {
     // Set environment variables to ensure we don't hit early exits
     process.env = {
       ...originalEnv,
+      // "" beats the frozen envSettings snapshot; a delete would fall back to it.
+      LLM_API_KEY: "",
       OPENROUTER_API_KEY: "test-key",
       MODEL: "env-model",
     };
@@ -582,7 +584,7 @@ describe("Model Selection Logic", () => {
     });
 
     it("resolves OPENROUTER_API_KEY from env when no stored key is set", async () => {
-      delete process.env.LLM_API_KEY;
+      process.env.LLM_API_KEY = "";
       process.env.OPENROUTER_API_KEY = "sk-openrouter-only";
       vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
         llmApiKey: "",

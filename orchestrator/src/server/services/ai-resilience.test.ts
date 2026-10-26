@@ -51,7 +51,8 @@ const mockProfile = { name: "Test User" };
 describe("AI Service Resilience", () => {
   beforeEach(() => {
     global.fetch = vi.fn();
-    delete process.env.LLM_API_KEY;
+    // "" means "absent": deleting falls back to the frozen envSettings snapshot.
+    process.env.LLM_API_KEY = "";
     process.env.OPENROUTER_API_KEY = "mock-key"; // Ensure logic tries to call API
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
       llmProvider: "openrouter",
@@ -92,7 +93,7 @@ describe("AI Service Resilience", () => {
     });
 
     it("should throw LlmNotConfiguredError if API Key is missing", async () => {
-      delete process.env.OPENROUTER_API_KEY;
+      process.env.OPENROUTER_API_KEY = "";
       vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({});
 
       // Should NOT call fetch

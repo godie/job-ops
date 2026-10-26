@@ -19,12 +19,13 @@ const ROUTE = "POST /api/jobs/:id/evaluation";
 
 async function runEvaluationReport(
   jobId: string,
+  token: string,
   requestId: string | undefined,
 ): Promise<void> {
   const startedAt = Date.now();
-  let status = 202;
-  let outcome = "success";
   let model: string | null = null;
+  let settled = false;
+  let superseded = false;
 
   try {
     const job = await jobsRepo.getJobById(jobId);
@@ -37,49 +38,73 @@ async function runEvaluationReport(
     });
     model = report.model;
 
-    await jobsRepo.updateJob(jobId, {
-      evaluationReport: report.markdown,
-      evaluationReportGeneratedAt: new Date().toISOString(),
-      evaluationReportModel: report.model,
-      evaluationReportMeta: JSON.stringify(report.meta),
+    // Writing the report and releasing the lock are one conditional statement:
+    // if this attempt no longer owns the lock, nothing is written at all.
+    settled = await jobsRepo.finalizeEvaluationReport({
+      id: jobId,
+      token,
+      report: report.markdown,
+      model: report.model,
+      meta: JSON.stringify(report.meta),
+      generatedAt: new Date().toISOString(),
     });
+    superseded = !settled;
   } catch (error) {
-    status = 502;
-    outcome = "error";
     logger.error("Evaluation report failed", {
       requestId: requestId ?? null,
       jobId,
       route: ROUTE,
-      status,
+      status: 502,
       durationMs: Date.now() - startedAt,
-      outcome,
+      outcome: "error",
       error: error instanceof Error ? error.message : String(error),
     });
   } finally {
-    try {
-      await jobsRepo.updateJob(jobId, { evaluationReportGenerating: false });
-    } catch (error) {
-      logger.error("Evaluation report lock release failed", {
-        requestId: requestId ?? null,
-        jobId,
-        route: ROUTE,
-        status,
-        durationMs: Date.now() - startedAt,
-        outcome: "error",
-        error: error instanceof Error ? error.message : String(error),
-      });
+    if (!settled && !superseded) {
+      try {
+        const released = await jobsRepo.releaseEvaluationLock(jobId, token);
+        if (!released) {
+          logger.warn("Evaluation lock release skipped", {
+            requestId: requestId ?? null,
+            jobId,
+            route: ROUTE,
+            durationMs: Date.now() - startedAt,
+            outcome: "superseded",
+          });
+        }
+      } catch (error) {
+        logger.error("Evaluation report lock release failed", {
+          requestId: requestId ?? null,
+          jobId,
+          route: ROUTE,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+          outcome: "error",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 
-  if (outcome === "success") {
+  if (settled) {
     logger.info("Evaluation report generated", {
       requestId: requestId ?? null,
       jobId,
       route: ROUTE,
-      status,
+      status: 202,
       model,
       durationMs: Date.now() - startedAt,
-      outcome,
+      outcome: "success",
+    });
+  } else if (superseded) {
+    logger.warn("Evaluation report superseded", {
+      requestId: requestId ?? null,
+      jobId,
+      route: ROUTE,
+      status: 202,
+      model,
+      durationMs: Date.now() - startedAt,
+      outcome: "superseded",
     });
   }
 }
@@ -102,10 +127,10 @@ jobsEvaluationRouter.post(
         );
       }
 
-      const started = await jobsRepo.beginEvaluationIfIdle(job.id, {
+      const token = await jobsRepo.beginEvaluationIfIdle(job.id, {
         staleAfterSeconds: LOCK_STALE_SECONDS,
       });
-      if (!started) {
+      if (!token) {
         throw conflict(
           "An evaluation report is already being generated for this job.",
         );
@@ -113,7 +138,7 @@ jobsEvaluationRouter.post(
 
       const requestId = getRequestId();
       ok(res, { jobId: job.id, status: "generating" as const }, 202);
-      void runEvaluationReport(job.id, requestId);
+      void runEvaluationReport(job.id, token, requestId);
     } catch (error) {
       fail(res, toAppError(error));
     }
